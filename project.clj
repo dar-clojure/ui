@@ -1,6 +1,7 @@
 (defproject dar/ui "0.0.1-SNAPSHOT"
   :plugins [[dar/assets-lein "0.0.1-SNAPSHOT"]]
-  :profiles {:dev {:dependencies [[dar/assets "0.0.1-SNAPSHOT"]]}}
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
+                                  [dar/assets "0.0.1-SNAPSHOT"]]}}
   :target-path "build/target"
   :clean-targets ["build"]
   :assets {:build-dir "build/assets"

@@ -64,8 +64,8 @@
         (update)
         (clear-events))))
 
-(defn probe
-  ([app signal] (probe app signal nil))
+(defn pull
+  ([app signal] (pull app signal nil))
   ([{outdate :outdate :as app} {uid :uid :as signal} l]
    (let [curr (get-signal app uid)
          s (or curr signal)
@@ -81,9 +81,9 @@
                        [s (assoc-in app [:signals uid] s)])))]
      [(:value s) app])))
 
-(defn probe-values [app signals l]
+(defn pull-values [app signals l]
   (reduce (fn [[vals app] s]
-            (let [[val app] (probe app s l)]
+            (let [[val app] (pull app s l)]
               [(conj vals val) app]))
           [[] app]
           signals))
@@ -108,7 +108,7 @@
                               (dissoc-signal a uid)
                               (reduce #(kill %1 %2 gen this) a inputs)))
 
-  (-update [this app] (let [[input-vals app] (probe-values app inputs this)
+  (-update [this app] (let [[input-vals app] (pull-values app inputs this)
                             new-val (apply fn input-vals)
                             this (assoc this :value new-val)]
                         [this (assoc-signal app this)])))
@@ -120,13 +120,13 @@
                             (kill input gen this)
                             (kill current-signal gen this)))
 
-  (-update [this app] (let [[new-signal app] (probe app input this)]
+  (-update [this app] (let [[new-signal app] (pull app input this)]
                         (if (= (:uid new-signal) (:uid current-signal))
-                          (let [[new-val app] (probe app current-signal this)
+                          (let [[new-val app] (pull app current-signal this)
                                 this (assoc this :value new-val)]
                             [this (assoc-signal app this)])
                           (let [app (kill app current-signal (::gen (meta current-signal)) this)
-                                [new-val app] (probe app new-signal this)
+                                [new-val app] (pull app new-signal this)
                                 this (assoc this :value new-val :current-signal new-signal)]
                             [this (assoc-signal app this)])))))
 
@@ -158,3 +158,9 @@
                              {::gen gen}))))
         input (apply input-sf inputs)]
     (->Switch nil (new-uid) nil false #{} input nil)))
+
+(defn probe [app signal]
+  (get-in app [:signals (:uid signal) :value]))
+
+(defn alive? [app signal]
+  (boolean (get-in app [:signals (:uid signal)])))
