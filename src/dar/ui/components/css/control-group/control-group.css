@@ -1,0 +1,35 @@
+.ControlGroup {
+  display: flex;
+  align-items: center;
+}
+
+.ControlGroup.ControlGroup--inline {
+  display: inline-flex;
+}
+
+:not(.ControlGroup--vert) > .ControlGroup-item:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 0;
+}
+
+:not(.ControlGroup--vert) > .ControlGroup-item:not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.ControlGroup.ControlGroup--vert {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ControlGroup--vert > .ControlGroup-item:not(:last-child) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+}
+
+.ControlGroup--vert > .ControlGroup-item:not(:first-child) {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
