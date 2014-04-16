@@ -89,19 +89,31 @@
 
 (def plugins {})
 
-(def ^:dynamic *listener* nil)
+(defrecod Plugin [on off])
 
-(defn install-plugin! [name plugin]
-  (def plugins (assoc plugins name plugin)))
+(defn install-plugin!
+  [name plugin]
+  (def plugins (assoc plugins name (map->Plugin plugin))))
 
-(defn call-plugin! [name type el arg old-arg]
-  (when-let [plugin (get plugins name)]
-    (plugin type *listener* el arg old-arg)
+(defn on-plugin! [name el arg]
+  (when-let [{on! :on} (get plugins name)]
+    (when on!
+      (on! el arg))
     true))
 
-(defprotocol IListener
-  (push! [this handle val])
-  (alive? [this handle]))
+(defn off-plugin! [name el arg]
+  (when-let [{off! :off} (get plugins name)]
+    (when off!
+      (off! el arg))
+    true))
+
+(defn update-plugin! [name el new-arg old-arg]
+  (when-let [{on! :on off! :off} (get plugins name)]
+    (when (and off! old-arg)
+      (off! el old-arg))
+    (when on!
+      (on! el new-arg))
+    true))
 
 ;
 ; Default IElement implementation for IHtml
@@ -110,11 +122,11 @@
 (defn update-attributes! [[[k v :as attr] & new-attrs] old-attrs el]
   (if attr
     (let [old (get old-attrs k)]
-      (when-not (or (identical? v old) (call-plugin! k :update el v old))
+      (when-not (or (= v old) (update-plugin! k el v old))
         (.setAttribute el v))
       (recur new-attrs (dissoc old-attrs k) el))
     (doseq [[k v] old-attrs]
-      (when-not (call-plugin! k :update el nil v)
+      (when-not (off-plugin! k el v)
         (.removeAttribute el k)))))
 
 (def html-element-impl
@@ -125,7 +137,7 @@
                (doseq [child (children this)]
                  (.appendChild el (create child)))
                (doseq [[k v] (attributes this)]
-                 (when-not (call-plugin! k :create el v nil)
+                 (when-not (on-plugin! k el v)
                    (.setAttribute el k v)))
                el))
    :update! (fn [new old el]
@@ -139,11 +151,10 @@
                   (update-attributes! new-attrs old-attrs el)))
               el)
    :remove! (fn [this el]
-              (if (.hasAttribute el "data-dar-delete-animation")
+              (if (:soft-delete (attributes this))
                 (do
-                  (.setAttribute el "data-dar-deleted" true)
-                  (js/setTimeout #(dom/remove! el) 1000)) ;; TODO: it should be better to use transition events
-                                                          ;; We probably can even detect transition properties
+                  (.setAttribute el "data-deleted" true)
+                  (js/setTimeout #(dom/remove! el) 3000)) ;; TODO: it is probably better to use transition events
                 (dom/remove! el)))})
 
 (extend Element
@@ -175,3 +186,12 @@
 
 (extend PersistentVector
   IElement html-element-impl)
+
+;
+; built-in plugins
+;
+
+(install-plugin! :key nil)
+(install-plugin! :soft-delete nil)
+(install-plugin! :html! {:on (fn [el html]
+                               (set! (.-innerHTML el) html))})

@@ -7,7 +7,7 @@
   (= 1 (.-nodeType el)))
 
 (defn deleted? [el]
-  (.hasAttribute el "data-dar-deleted"))
+  (.hasAttribute el "data-deleted"))
 
 (defn node? [el]
   (and (or (element? el) (text-node? el))
