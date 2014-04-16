@@ -38,7 +38,7 @@
                          m))
                      (:signals app)
                      (:events app))
-    :events ()))
+    :events nil))
 
 (defn- assoc-signal [app s]
   (-> app
@@ -161,6 +161,3 @@
 
 (defn probe [app signal]
   (get-in app [:signals (:uid signal) :value]))
-
-(defn alive? [app signal]
-  (boolean (get-in app [:signals (:uid signal)])))
