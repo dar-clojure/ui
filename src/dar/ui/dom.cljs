@@ -1,6 +1,6 @@
-(ns dar.dom
+(ns dar.ui.dom
   (:refer-clojure :exclude [type key])
-  (:require [dar.dom.browser :as dom]))
+  (:require [dar.ui.dom.browser :as dom]))
 
 (defprotocol IElement
   (type [this])
@@ -89,7 +89,7 @@
 
 (def plugins {})
 
-(defrecod Plugin [on off])
+(defrecord Plugin [on off])
 
 (defn install-plugin!
   [name plugin]
@@ -123,69 +123,51 @@
   (if attr
     (let [old (get old-attrs k)]
       (when-not (or (= v old) (update-plugin! k el v old))
-        (.setAttribute el v))
+        (.setAttribute el (name k) v))
       (recur new-attrs (dissoc old-attrs k) el))
     (doseq [[k v] old-attrs]
       (when-not (off-plugin! k el v)
         (.removeAttribute el k)))))
 
-(def html-element-impl
-  {:type tag
-   :key #(:key (attributes %))
-   :create (fn [this]
-             (let [el (.createElement js/document (tag this))]
-               (doseq [child (children this)]
-                 (.appendChild el (create child)))
-               (doseq [[k v] (attributes this)]
-                 (when-not (on-plugin! k el v)
-                   (.setAttribute el k v)))
-               el))
-   :update! (fn [new old el]
-              (let [new-children (children new)
-                    old-children (children old)]
-                (when-not (identical? new-children old-children)
-                  (update-children! new-children old-children el)))
-              (let [new-attrs (attributes new)
-                    old-attrs (attributes old)]
-                (when-not (identical? new-attrs old-attrs)
-                  (update-attributes! new-attrs old-attrs el)))
-              el)
-   :remove! (fn [this el]
-              (if (:soft-delete (attributes this))
-                (do
-                  (.setAttribute el "data-deleted" true)
-                  (js/setTimeout #(dom/remove! el) 3000)) ;; TODO: it is probably better to use transition events
-                (dom/remove! el)))})
-
-(extend Element
-  IElement html-element-impl)
+(extend-type Element
+  IElement
+  (type [this] (tag this))
+  (key [this] (:key (attributes this)))
+  (create [this] (let [el (.createElement js/document (name (tag this)))]
+                   (doseq [child (children this)]
+                     (.appendChild el (create child)))
+                   (doseq [[k v] (attributes this)]
+                     (when-not (on-plugin! k el v)
+                       (.setAttribute el (name k) v)))
+                   el))
+  (update! [new old el] (do
+                          (let [new-children (children new)
+                                old-children (children old)]
+                            (when-not (identical? new-children old-children)
+                              (update-children! new-children old-children el)))
+                          (let [new-attrs (attributes new)
+                                old-attrs (attributes old)]
+                            (when-not (identical? new-attrs old-attrs)
+                              (update-attributes! new-attrs old-attrs el)))
+                          el))
+  (remove! [this el] (if (:soft-delete (attributes this))
+                       (do
+                         (.setAttribute el "data-deleted" true)
+                         (js/setTimeout #(dom/remove! el) 3000)) ;; TODO: it is probably better to use transition events
+                       (dom/remove! el))))
 
 ;
 ; Use string as a text node
 ;
 
-(extend-type String
+(extend-type js/String
   IElement
   (type [_] :text-node)
   (key [_] nil)
   (create [s] (.createTextNode js/document s))
   (update! [new old node] (when-not (= new old)
-                                (set! (.-textContent node) new-s)))
+                            (set! (.-textContent node) new-s)))
   (remove! [_ node] (dom/remove! node)))
-
-;
-; Hiccup style elements
-;
-
-(extend-type PersistentVector
-  IHtml
-  (tag [this] (nth this 0))
-  (attributes [this] (nth this 1))
-  (set-attributes [this attrs] (assoc this 1 attrs))
-  (children [this] (nth this 2)))
-
-(extend PersistentVector
-  IElement html-element-impl)
 
 ;
 ; built-in plugins

@@ -1,4 +1,4 @@
-(ns dar.dom.browser)
+(ns dar.ui.dom.browser)
 
 (defn element? [el]
   (= 3 (.-nodeType el)))

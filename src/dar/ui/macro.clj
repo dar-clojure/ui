@@ -25,7 +25,7 @@
 
 (defn- render-dom-el-macro [tag [attrs & children]]
   (let [children (if (vector? (first children))
-                   (first children)
+                   (ffirst children)
                    `(list ~@children))
         tag (keyword (name tag))]
     `(dar.ui.dom/->Element ~tag ~attrs ~children)))
