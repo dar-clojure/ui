@@ -81,6 +81,9 @@
                        [s (assoc-in app [:signals uid] s)])))]
      [(:value s) app])))
 
+(defn probe [app signal]
+  (-> app :signals (get (:uid signal)) :value))
+
 (defn pull-values [app signals l]
   (reduce (fn [[vals app] s]
             (let [[val app] (pull app s l)]
@@ -130,6 +133,12 @@
                                 this (assoc this :value new-val :current-signal new-signal)]
                             [this (assoc-signal app this)])))))
 
+(defrecord Loopback [name uid value listeners out]
+  ISignal
+  (-kill [this app gen] (dissoc-signal app uid))
+  (-update [this app] (let [this (assoc this :value (probe app @out))]
+                        [this (assoc-signal app this)])))
+
 (defn as-event [s]
   (assoc s :event? true))
 
@@ -159,5 +168,8 @@
         input (apply input-sf inputs)]
     (->Switch nil (new-uid) nil false #{} input nil)))
 
-(defn probe [app signal]
-  (get-in app [:signals (:uid signal) :value]))
+(defn foldp [f init signal]
+  (let [out-atom (atom nil)
+        lb (->Loopback nil (new-uid) init #{} out-atom)
+        out (->Transform nil (new-uid) init false #{(:uid lb)} f [lb signal])]
+    (reset! out-atom out)))

@@ -1,6 +1,6 @@
 (ns calculator.main
   (:refer-clojure :exclude [key keys])
-  (:require [dar.ui :refer [render!]]
+  (:require [dar.ui :refer [render! to]]
             [dar.ui.frp :refer [new-event foldp]])
   (:require-macros [dar.ui.macro :refer [transform TABLE TBODY TD TR DIV]]))
 
@@ -43,11 +43,19 @@
    :ac (fn [st]
          (assoc initial-state :memory (:memory st)))})
 
+(defn state [commands-signal]
+  (foldp (fn [st [cmd & args]]
+           (if cmd
+             (apply (on-command cmd) st args)
+             st))
+         initial-state
+         commands-signal))
+
 (defn trim-right-char [s]
   (subs s 0 (dec (count s))))
 
 (defn format-number [num]
-  (loop [s (.toFixed accumulator 12)]
+  (loop [s (.toFixed num 12)]
     (case (last s)
       \0 (recur (trim-right-char s))
       \. (trim-right-char s)
@@ -64,8 +72,8 @@
       (DIV {:id "display"} (display-string st)))))
 
 (defn key
-  ([commands-signal command label] (key commands-signal command label 1))
-  ([commands-signal command label span]
+  ([commands-signal label command] (key commands-signal label command 1))
+  ([commands-signal label command span]
    (TD {:colspan span}
      (DIV {:id (-> command first name) :ev-click (to commands-signal command)}
        label))))
@@ -100,12 +108,10 @@
 (defn new-calc []
   (let [commands (new-event)
         keys (keys commands)
-        state (foldp (fn [state [cmd & args]]
-                       (apply (on-command cmd) state args))
-                     commands initial-state)]
-    (transform [st state]
+        st (state commands)]
+    (transform [st st]
       (TABLE nil
         (TBODY nil
           [(cons (display st) keys)])))))
 
-(render! (new-calc) (.getElementById js/document "calculator"))
+(render! (new-calc) (.getElementById js/document "calc"))

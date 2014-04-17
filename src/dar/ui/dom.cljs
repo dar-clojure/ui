@@ -177,3 +177,9 @@
 (install-plugin! :soft-delete nil)
 (install-plugin! :html! {:on (fn [el html]
                                (set! (.-innerHTML el) html))})
+
+(install-plugin! :ev-click {:on (fn [el listener]
+                                  (let [app dar.ui/*app*]
+                                    (set! (.-onclick el) #(listener app %))))
+                            :off (fn [el _]
+                                   (set! (.-onclick el) nil))})

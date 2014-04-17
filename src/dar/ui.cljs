@@ -22,12 +22,12 @@
 (defn to
   ([signal] (to signal nil))
   ([signal proc]
-   (fn [val]
+   (fn [app val]
      (let [val (cond (fn? proc) (proc val)
                      (nil? proc) val
                      :else proc)]
        (when-not (nil? val)
-         (push! *app* signal val))))))
+         (push! app signal val))))))
 
 (defn render!
   ([main el] (render! (new-app) main el))
