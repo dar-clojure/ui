@@ -19,39 +19,39 @@
     (or amount accumulator)))
 
 (defn on-op [f]
-  (fn [{:keys [operator accumulator] :as st}]
-    (assoc st
+  (fn [{:keys [operator accumulator] :as state}]
+    (assoc state
       :accumulator (if operator
-                     (operator accumulator (amount st))
-                     (amount st))
+                     (operator accumulator (amount state))
+                     (amount state))
       :digits nil
       :decimal-point nil
       :amount nil
       :operator f)))
 
 (def on-command
-  {:num (fn [{:keys [digits decimal-point] :as st} num]
+  {:num (fn [{:keys [digits decimal-point] :as state} num]
           (if digits
-            (assoc st
+            (assoc state
               :digits (+ (* digits 10) num)
               :decimal-point (if decimal-point
                                (* 10 decimal-point)))
-            (assoc st :digits num)))
-   :period (fn [st]
-             (if (:decimal-point st)
-               st
-               (assoc st :decimal-point 1)))
+            (assoc state :digits num)))
+   :period (fn [state]
+             (if (:decimal-point state)
+               state
+               (assoc state :decimal-point 1)))
    :plus (on-op +)
    :minus (on-op -)
    :div (on-op /)
    :mult (on-op *)
    :eq (on-op (fn [_ amount] amount))
-   :ac (fn [st]
-         (assoc initial-state :memory (:memory st)))
-   :ms (fn [st]
-         (assoc st :memory (amount st)))
-   :mr (fn [st]
-         (assoc st :amount (:memory st)))})
+   :ac (fn [state]
+         (assoc initial-state :memory (:memory state)))
+   :ms (fn [state]
+         (assoc state :memory (amount state)))
+   :mr (fn [state]
+         (assoc state :amount (:memory state)))})
 
 (defn state-sf [commands-signal]
   (foldp (fn [state [cmd & args]]
@@ -69,16 +69,16 @@
       \. (trim-right-char s)
       s)))
 
-(defn print-amount [st]
-  (let [num (amount st)]
-    (if (:decimal-point st)
-      (.toFixed num (-> (:decimal-point st) str count dec))
+(defn print-amount [state]
+  (let [num (amount state)]
+    (if (:decimal-point state)
+      (.toFixed num (-> (:decimal-point state) str count dec))
       (format-number num))))
 
-(defn display [st]
+(defn display [state]
   (TR nil
     (TD {:colspan 4}
-      (DIV {:id "display"} (print-amount st)))))
+      (DIV {:id "display"} (print-amount state)))))
 
 (defn key
   ([commands-signal label command] (key commands-signal label command 1))
