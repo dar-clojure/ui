@@ -33,11 +33,11 @@
   ([main el] (render! (new-app) main el))
   ([app main el]
    (pull! app main)
-   (binding [*app* app]
-     (dom/update-element! (probe app main) nil el))
-   (add-watch app (gensym) (fn [_ _ prev-state new-state]
-                             (let [prev-dom (frp/probe prev-state main)
-                                   new-dom (frp/probe new-state main)]
-                               (binding [*app* app]
-                                 (dom/update-element! new-dom prev-dom el)))))
-   app))
+   (let [el (binding [*app* app]
+              (dom/update-element! (probe app main) nil el))]
+     (add-watch app (gensym) (fn [_ _ prev-state new-state]
+                               (let [prev-dom (frp/probe prev-state main)
+                                     new-dom (frp/probe new-state main)]
+                                 (binding [*app* app]
+                                   (dom/update-element! new-dom prev-dom el)))))
+     app)))

@@ -1,13 +1,14 @@
 (ns dar.ui.dom.browser)
 
 (defn element? [el]
-  (= 3 (.-nodeType el)))
-
-(defn text-node? [el]
   (= 1 (.-nodeType el)))
 
+(defn text-node? [el]
+  (= 3 (.-nodeType el)))
+
 (defn deleted? [el]
-  (.hasAttribute el "data-deleted"))
+  (and (element? el)
+       (.hasAttribute el "data-deleted")))
 
 (defn node? [el]
   (and (or (element? el) (text-node? el))
@@ -16,13 +17,13 @@
 (defn all-siblings [fst]
   (lazy-seq
    (if fst
-     (cons fst (siblings (.-nextSibling fst)))
+     (cons fst (all-siblings (.-nextSibling fst)))
      nil)))
 
 (defn all-prev-siblings [lst]
   (lazy-seq
    (if lst
-     (cons lst (siblings-reversed (.-previousSibling lst)))
+     (cons lst (all-prev-siblings (.-previousSibling lst)))
      nil)))
 
 (defn all-children [el]
