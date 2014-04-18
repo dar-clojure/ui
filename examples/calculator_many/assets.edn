@@ -1,0 +1,5 @@
+{:dependencies ["calculator"]
+ :css ["calcs.css"]
+ :cljs [calculator-many.main]
+ :main-ns calculator-many.main
+ :main-html "main.html"}
