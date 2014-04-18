@@ -1,5 +1,4 @@
 {:css ["calculator.css"]
- :files ["POCKC___.svg" "POCKC___.eot" "POCKC___.woff" "POCKC___.ttf"]
  :cljs [calculator.main]
  :main-ns calculator.main
  :main-html "main.html"}
