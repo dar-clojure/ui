@@ -178,3 +178,7 @@
 
 (defn foldp [f init signal]
   (->Foldp nil (new-uid) init #{} f signal))
+
+(defn join
+  ([x] x)
+  ([x & xs] (apply (lift (fn [& xs] xs)) x xs)))
