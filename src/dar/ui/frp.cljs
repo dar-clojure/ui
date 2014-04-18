@@ -133,11 +133,19 @@
                                 this (assoc this :value new-val :current-signal new-signal)]
                             [this (assoc-signal app this)])))))
 
-(defrecord Loopback [name uid value listeners out]
+(defrecord Foldp [name uid value listeners fn input]
   ISignal
-  (-kill [this app gen] (dissoc-signal app uid))
-  (-update [this app] (let [this (assoc this :value (probe app @out))]
-                        [this (assoc-signal app this)])))
+  (-kill [this app gen] (-> app
+                            (dissoc-signal uid)
+                            (kill input gen this)))
+
+  (-update [this app] (let [[input-val app] (pull app input this)]
+                        (if (and (nil? input-val)
+                                 (:event? input))
+                          [this app]
+                          (let [new-val (fn value input-val)
+                                this (assoc this :value new-val)]
+                            [this (assoc-signal app this)])))))
 
 (defn as-event [s]
   (assoc s :event? true))
@@ -169,7 +177,4 @@
     (->Switch nil (new-uid) nil false #{} input nil)))
 
 (defn foldp [f init signal]
-  (let [out-atom (atom nil)
-        lb (->Loopback nil (new-uid) init #{} out-atom)
-        out (->Transform nil (new-uid) init false #{(:uid lb)} f [lb signal])]
-    (reset! out-atom out)))
+  (->Foldp nil (new-uid) init #{} f signal))

@@ -55,9 +55,8 @@
 
 (defn state-sf [commands-signal]
   (foldp (fn [st [cmd & args]]
-           (if cmd
-             (apply (on-command cmd) st args)
-             st))
+           (apply (on-command cmd) st args)
+           st)
          initial-state
          commands-signal))
 
