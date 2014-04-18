@@ -6,22 +6,28 @@
 
 (def initial-state {:digits nil
                     :decimal-point nil
+                    :amount nil
                     :accumulator 0
-                    :operation nil
+                    :operator nil
                     :memory 0})
 
-(defn amount [{:keys [digits decimal-point]}]
-  (/ (or digits 0) (or decimal-point 1)))
+(defn amount
+  "Number on the screen"
+  [{:keys [digits decimal-point accumulator amount]}]
+  (if digits
+    (/ digits (or decimal-point 1))
+    (or amount accumulator)))
 
 (defn on-op [f]
-  (fn [{:keys [operation accumulator] :as st}]
+  (fn [{:keys [operator accumulator] :as st}]
     (assoc st
-      :accumulator (if operation
-                     (operation accumulator (amount st))
+      :accumulator (if operator
+                     (operator accumulator (amount st))
                      (amount st))
       :digits nil
       :decimal-point nil
-      :operation f)))
+      :amount nil
+      :operator f)))
 
 (def on-command
   {:num (fn [{:keys [digits decimal-point] :as st} num]
@@ -39,11 +45,15 @@
    :minus (on-op -)
    :div (on-op /)
    :mult (on-op *)
-   :eq (on-op identity)
+   :eq (on-op (fn [_ amount] amount))
    :ac (fn [st]
-         (assoc initial-state :memory (:memory st)))})
+         (assoc initial-state :memory (:memory st)))
+   :ms (fn [st]
+         (assoc st :memory (amount st)))
+   :mr (fn [st]
+         (assoc st :amount (:memory st)))})
 
-(defn state [commands-signal]
+(defn state-sf [commands-signal]
   (foldp (fn [st [cmd & args]]
            (if cmd
              (apply (on-command cmd) st args)
@@ -61,15 +71,16 @@
       \. (trim-right-char s)
       s)))
 
-(defn display-string [st]
-  (format-number (if (:digits st)
-                   (amount st)
-                   (:accumulator st))))
+(defn print-amount [st]
+  (let [num (amount st)]
+    (if (:decimal-point st)
+      (.toFixed num (-> (:decimal-point st) str count dec))
+      (format-number num))))
 
 (defn display [st]
   (TR nil
     (TD {:colspan 4}
-      (DIV {:id "display"} (display-string st)))))
+      (DIV {:id "display"} (print-amount st)))))
 
 (defn key
   ([commands-signal label command] (key commands-signal label command 1))
@@ -108,10 +119,10 @@
 (defn new-calc []
   (let [commands (new-event)
         keys (keys commands)
-        st (state commands)]
-    (transform [st st]
+        state (state-sf commands)]
+    (transform [s state]
       (TABLE nil
         (TBODY nil
-          [(cons (display st) keys)])))))
+          [(cons (display s) keys)])))))
 
 (render! (new-calc) (.getElementById js/document "calc"))

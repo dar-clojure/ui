@@ -119,15 +119,17 @@
 ; Default IElement implementation for IHtml
 ;
 
-(defn update-attributes! [[[k v :as attr] & new-attrs] old-attrs el]
-  (if attr
-    (let [old (get old-attrs k)]
-      (when-not (or (= v old) (update-plugin! k el v old))
-        (.setAttribute el (name k) v))
-      (recur new-attrs (dissoc old-attrs k) el))
-    (doseq [[k v] old-attrs]
-      (when-not (off-plugin! k el v)
-        (.removeAttribute el k)))))
+(defn update-attributes! [new-attrs old-attrs el]
+  (loop [kvs (seq new-attrs)
+         old-attrs old-attrs]
+    (if-let [[k v] (first kvs)]
+      (let [old (get old-attrs k)]
+        (when-not (or (= v old) (update-plugin! k el v old))
+          (.setAttribute el (name k) v))
+        (recur (next kvs) (dissoc old-attrs k)))
+      (doseq [[k v] old-attrs]
+        (when-not (off-plugin! k el v)
+          (.removeAttribute el k))))))
 
 (extend-type Element
   IElement
@@ -166,7 +168,7 @@
   (key [_] nil)
   (create [s] (.createTextNode js/document s))
   (update! [new old node] (when-not (= new old)
-                            (set! (.-textContent node) new-s)))
+                            (set! (.-textContent node) new)))
   (remove! [_ node] (dom/remove! node)))
 
 ;
