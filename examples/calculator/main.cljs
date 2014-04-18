@@ -54,9 +54,8 @@
          (assoc st :amount (:memory st)))})
 
 (defn state-sf [commands-signal]
-  (foldp (fn [st [cmd & args]]
-           (apply (on-command cmd) st args)
-           st)
+  (foldp (fn [state [cmd & args]]
+           (apply (on-command cmd) state args))
          initial-state
          commands-signal))
 
