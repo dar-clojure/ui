@@ -123,4 +123,5 @@
         (TBODY nil
           [(cons (display s) keys)])))))
 
-(render! (new-calc) (.getElementById js/document "calc"))
+(defn -main []
+  (render! (new-calc) (.getElementById js/document "calc")))
