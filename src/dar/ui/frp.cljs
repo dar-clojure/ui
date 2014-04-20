@@ -6,6 +6,7 @@
   (swap! counter inc))
 
 (defprotocol ^:private ISignal
+  (-touch [this app])
   (-update [this app])
   (-kill [this app gen]))
 
@@ -16,14 +17,20 @@
 (defn- get-signal [app uid]
   (-> app :signals (get uid)))
 
+(defn- touch
+  ([app signal] (touch app signal identity))
+  ([{outdate :outdate :as app} signal cb]
+   (let [new-outdate (conj outdate (:uid signal))
+         app (assoc app :outdate new-outdate)]
+     (if (identical? new-outdate outdate)
+       app
+       (cb app)))))
+
 (defn- touch-listeners [app signal]
-  (reduce (fn [{outdate :outdate :as app} uid]
-            (if (outdate uid)
-              app
-              (touch-listeners (assoc app :outdate (conj outdate uid))
-                               (get-signal app uid))))
-            app
-            (:listeners signal)))
+  (reduce (fn [app uid]
+            (-touch (get-signal app uid) app))
+          app
+          (:listeners signal)))
 
 (defn- register-event [app s]
   (if (:event? s)
@@ -100,6 +107,9 @@
         app)
       app)))
 
+(defn- kill-many [app signals gen listener]
+  (reduce #(kill %1 %2 gen listener) app signals))
+
 (extend-protocol ISignal
   Signal
   (-update [this app] [this app])
@@ -107,9 +117,11 @@
 
 (defrecord Transform [name uid value event? listeners fn inputs]
   ISignal
-  (-kill [this app gen] (as-> app a
-                              (dissoc-signal a uid)
-                              (reduce #(kill %1 %2 gen this) a inputs)))
+  (-touch [this app] (touch app this #(touch-listeners % this)))
+
+  (-kill [this app gen] (-> app
+                            (dissoc-signal uid)
+                            (kill-many inputs gen this)))
 
   (-update [this app] (let [[input-vals app] (pull-values app inputs this)
                             new-val (apply fn input-vals)
@@ -118,6 +130,8 @@
 
 (defrecord Switch [name uid value event? listeners input current-signal]
   ISignal
+  (-touch [this app] (touch app this #(touch-listeners % this)))
+
   (-kill [this app gen] (-> app
                             (dissoc-signal uid)
                             (kill input gen this)
@@ -135,6 +149,8 @@
 
 (defrecord Foldp [name uid value listeners fn input]
   ISignal
+  (-touch [this app] (touch app this #(touch-listeners % this)))
+
   (-kill [this app gen] (-> app
                             (dissoc-signal uid)
                             (kill input gen this)))
