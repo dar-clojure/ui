@@ -14,6 +14,20 @@
 
 (defrecord Signal [name uid value event?])
 
+(defn probe [app signal]
+  (-> app :signals (get (:uid signal)) :value))
+
+(defn new-signal
+  ([name value] (->Signal name (new-uid) value false))
+  ([value] (new-signal nil value))
+  ([] (new-signal nil)))
+
+(defn as-event [s]
+  (assoc s :event? true))
+
+(defn new-event [& args]
+  (as-event (apply new-signal args)))
+
 (defn get-signal [app uid]
   (-> app :signals (get uid)))
 
@@ -58,13 +72,14 @@
                app)))
     app))
 
-(defn push [app signal val]
+(defn push* [app signal val]
   (let [s (-> app :signals (get (:uid signal) signal) (assoc :value val))]
-    (-> app
-        (assoc-signal s)
-        (touch-listeners s)
-        (update)
-        (clear-events))))
+    (-> app (assoc-signal s) (touch-listeners s))))
+
+(defn push [app signal val]
+  (-> (push* app signal val)
+      (update)
+      (clear-events)))
 
 (defn- set-conj [s v]
   (conj (or s #{}) v))
@@ -88,9 +103,6 @@
                (assoc-signal app s*))]
      [(:value s*) app])))
 
-(defn probe [app signal]
-  (-> app :signals (get (:uid signal)) :value))
-
 (defn pull-values [app signals l]
   (reduce (fn [[vals app] s]
             (let [[val app] (pull app s l)]
@@ -99,7 +111,7 @@
           signals))
 
 (defn kill [app {uid :uid :as signal} gen listener]
-  (if (> uid gen)
+  (if (>= uid gen)
     (let [app (-> app
                   (update-in [:signals] dissoc uid)
                   (update-in [:listeners] dissoc uid))]
@@ -129,6 +141,10 @@
                             this (assoc this :value new-val)]
                         [this app])))
 
+(defn lift [function]
+  (fn [& inputs]
+    (->Transform nil (new-uid) nil false function inputs)))
+
 (defrecord Switch [name uid value event? input current-signal]
   ISignal
   (-touch [this app] (touch-listeners app this))
@@ -147,6 +163,14 @@
                                 this (assoc this :value new-val :current-signal new-signal)]
                             [this app])))))
 
+(defn switch [factory & inputs]
+  (let [input-sf (lift (fn [& args]
+                         (let [gen (new-uid)]
+                           (with-meta (apply factory args)
+                             {::gen gen}))))
+        input (apply input-sf inputs)]
+    (->Switch nil (new-uid) nil false input nil)))
+
 (defrecord Foldp [name uid value fn input]
   ISignal
   (-touch [this app] (touch-listeners app this))
@@ -160,47 +184,6 @@
                           (let [new-val (fn value input-val)
                                 this (assoc this :value new-val)]
                             [this app])))))
-
-(defrecord DelayedChanges [name uid value event? input]
-  ISignal
-  (-touch [this app] app)
-
-  (-kill [this app gen] (kill app input gen this))
-
-  (-update [this app] (let [[new-val app] (pull app input this)]
-                        (if (identical? new-val value)
-                          [this app]
-                          (let [this (assoc this :value new-val)
-                                app (touch-listeners app this)]
-                            [this app])))))
-
-(defn as-event [s]
-  (assoc s :event? true))
-
-(defn new-signal
-  ([name value] (->Signal name (new-uid) value false))
-  ([value] (new-signal nil value))
-  ([] (new-signal nil)))
-
-(defn new-event [& args]
-  (as-event (apply new-signal args)))
-
-(defn lift [function]
-  (fn [& inputs]
-    (->Transform nil
-                 (new-uid)
-                 nil
-                 false
-                 function
-                 inputs)))
-
-(defn switch [factory & inputs]
-  (let [input-sf (lift (fn [& args]
-                         (let [gen (new-uid)]
-                           (with-meta (apply factory args)
-                             {::gen gen}))))
-        input (apply input-sf inputs)]
-    (->Switch nil (new-uid) nil false input nil)))
 
 (defn foldp [f init signal]
   (->Foldp nil (new-uid) init f signal))
