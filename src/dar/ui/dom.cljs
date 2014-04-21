@@ -172,6 +172,22 @@
   (remove! [_ node] (dom/remove! node)))
 
 ;
+; events
+;
+
+(def ^:dynamic *fire* nil)
+
+(defn to
+  ([signal] (to signal nil))
+  ([signal proc]
+   (fn [fire! val]
+     (let [val (cond (fn? proc) (proc val)
+                     (nil? proc) val
+                     :else proc)]
+       (when-not (nil? val)
+         (fire! signal val))))))
+
+;
 ; built-in plugins
 ;
 
@@ -181,7 +197,7 @@
                                (set! (.-innerHTML el) html))})
 
 (install-plugin! :ev-click {:on (fn [el listener]
-                                  (let [app dar.ui/*app*]
-                                    (set! (.-onclick el) #(listener app %))))
+                                  (let [fire! *fire*]
+                                    (set! (.-onclick el) #(listener fire! %))))
                             :off (fn [el _]
                                    (set! (.-onclick el) nil))})

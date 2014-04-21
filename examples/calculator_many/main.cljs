@@ -2,7 +2,8 @@
   (:require [calculator.main :refer [new-calc]]
             [dar.ui :refer [render!]]
             [dar.ui.frp :refer [join]])
-  (:require-macros [dar.ui.macro :refer [transform DIV]]))
+  (:require-macros [dar.ui.frp :refer [transform]]
+                   [dar.ui.dom.elements :refer [DIV]]))
 
 (defn -main []
   (render! (transform [calcs (apply join (repeatedly 1000 new-calc))]

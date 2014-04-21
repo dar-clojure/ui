@@ -1,5 +1,4 @@
-(ns dar.ui.macro
-  (:require [clojure.string :as string]))
+(ns dar.ui.frp)
 
 (defmacro transform [& args]
   (let [name (if (symbol? (first args))

@@ -1,8 +1,10 @@
 (ns calculator.main
   (:refer-clojure :exclude [key keys])
-  (:require [dar.ui :refer [render! to]]
-            [dar.ui.frp :refer [new-event foldp]])
-  (:require-macros [dar.ui.macro :refer [transform TABLE TBODY TD TR DIV]]))
+  (:require [dar.ui :refer [render!]]
+            [dar.ui.frp :refer [new-event foldp]]
+            [dar.ui.dom :refer [to]])
+  (:require-macros [dar.ui.frp :refer [transform]]
+                   [dar.ui.dom.elements :refer [TABLE TBODY TD TR DIV]]))
 
 (def initial-state {:digits nil
                     :decimal-point nil
