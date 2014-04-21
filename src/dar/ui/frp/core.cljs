@@ -191,3 +191,58 @@
 (defn join
   ([x] x)
   ([x & xs] (apply (lift (fn [& xs] xs)) x xs)))
+
+(defrecord MapSwitch [name uid value input m sm sf reduce-fn init]
+  ISignal
+  (-touch [this app] (touch-listeners app))
+
+  (-kill [this app gen] (-> app
+                            (kill input gen this)
+                            (kill-many (map #(nth % 2) (vals sm)) gen this)))
+
+  (-update [this app] (let [[new-m app] (pull app input this)
+                            [new-sm app] (if (identical? new-m m)
+                                           [sm app]
+                                           (loop [app (update-in app [:outdate] conj uid)
+                                                  m (transient new-m)
+                                                  sm sm
+                                                  sm-seq (seq sm)]
+                                             (if (seq sm-seq)
+                                               (let [[k [v in out]] (first sm-seq)
+                                                     new-v (get m k ::nil)]
+                                                 (if (= ::nill new-v)
+                                                   (recur (kill app out (:uid in) this)
+                                                          m
+                                                          (dissoc sm k)
+                                                          (next sm-seq))
+                                                   (if (identical? new-v v)
+                                                     (recur app
+                                                            (dissoc! m k)
+                                                            sm
+                                                            (next sm-seq))
+                                                     (recur (push* app in new-v)
+                                                            (dissoc! m k)
+                                                            (assoc sm k [new-v in out])
+                                                            (next sm-seq)))))
+                                               [(reduce (fn [sm [k v]]
+                                                          (let [in (new-signal)
+                                                                out (sf in)]
+                                                            (assoc sm k [v in out])))
+                                                        sm
+                                                        m)
+                                                (update-in app [:outdate] disj uid)])))
+                            [new-val app] (reduce (fn [[acc app] [k s]]
+                                                    (let [[v app] (pull app s this)]
+                                                      [(reduce-fn acc [k v]) app]))
+                                                  [init app]
+                                                  new-sm)]
+                        [(assoc this
+                           :value new-val
+                           :sm new-sm
+                           :m new-m)
+                         app])))
+
+(defn map-switch
+  ([sf input] (map-switch cons nil sf input))
+  ([reduce-fn init sf input]
+   (->MapSwitch nil (new-uid) init input nil {} sf reduce-fn init)))
