@@ -220,18 +220,18 @@
                                                             (dissoc! m k)
                                                             sm
                                                             (next sm-seq))
-                                                     (recur (push* app in new-v)
+                                                     (recur (push* app in [k new-v])
                                                             (dissoc! m k)
                                                             (assoc sm k [new-v in out])
                                                             (next sm-seq)))))
                                                [(reduce (fn [sm [k v]]
-                                                          (let [in (new-signal)
+                                                          (let [in (new-signal [k v])
                                                                 out (sf in)]
                                                             (assoc sm k [v in out])))
                                                         sm
-                                                        m)
+                                                        (persistent! m))
                                                 (update-in app [:outdate] disj uid)])))
-                            [new-val app] (reduce (fn [[acc app] [k s]]
+                            [new-val app] (reduce (fn [[acc app] [k [_ _ s]]]
                                                     (let [[v app] (pull app s this)]
                                                       [(reduce-fn acc [k v]) app]))
                                                   [init app]
@@ -243,7 +243,7 @@
                          app])))
 
 (defn map-switch
-  ([sf input] (map-switch cons nil sf input))
+  ([sf input] (map-switch conj nil sf input))
   ([reduce-fn init sf input]
    (->MapSwitch nil (new-uid) init input nil {} sf reduce-fn init)))
 
@@ -252,3 +252,6 @@
            (apply (commands cmd) state args))
          initial-state
          commands-signal))
+
+(defn to-event [signal]
+  (->Transform nil (new-uid) nil true identity [signal]))

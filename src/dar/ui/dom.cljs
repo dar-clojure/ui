@@ -1,7 +1,8 @@
 (ns dar.ui.dom
   (:refer-clojure :exclude [type key])
-  (:require [dar.ui.dom.browser :as dom])
-  (:require-macros [dar.ui.dom.macro :refer [event]]))
+  (:require [dar.ui.dom.browser :as dom]
+            [clojure.string :as string])
+  (:require-macros [dar.ui.dom.macro :refer [event!]]))
 
 (defprotocol IElement
   (type [this])
@@ -24,7 +25,7 @@
 (defn- update-non-sorted-part! [[x & xs :as new] [y & ys :as old] els append!]
   (cond (not x) (when y
                   (dorun (map remove! old els)))
-        (not y) (dorun (map #(-> create append!) new))
+        (not y) (dorun (map #(-> % create append!) new))
         (identical? x y) (recur xs ys (next els) append!)
         (= (key x) (key y)) (do
                               (update-element! x y (first els))
@@ -109,9 +110,7 @@
     true))
 
 (defn update-plugin! [name el new-arg old-arg]
-  (when-let [{on! :on off! :off} (get plugins name)]
-    (when (and off! old-arg)
-      (off! el old-arg))
+  (when-let [{on! :on} (get plugins name)]
     (when on!
       (on! el new-arg))
     true))
@@ -125,7 +124,7 @@
          old-attrs old-attrs]
     (if-let [[k v] (first kvs)]
       (let [old (get old-attrs k)]
-        (when-not (or (= v old) (update-plugin! k el v old))
+        (when-not (or (identical? v old) (update-plugin! k el v old))
           (.setAttribute el (name k) v))
         (recur (next kvs) (dissoc old-attrs k)))
       (doseq [[k v] old-attrs]
@@ -163,7 +162,7 @@
 ; Use string as a text node
 ;
 
-(extend-type js/String
+(extend-type string
   IElement
   (type [_] :text-node)
   (key [_] nil)
@@ -177,6 +176,12 @@
 ;
 
 (def ^:dynamic *fire* nil)
+
+(defn to* [proc]
+  (fn [fire! val]
+    (let [events (filter (complement nil?) (proc val))]
+      (when (seq events)
+        (fire! events)))))
 
 (defn to
   ([signal] (to signal nil))
@@ -204,12 +209,32 @@
 
 (install-plugin! :value {:on dom/set-value!})
 
-;; (install-plugin! :ev-click {:on (fn [el listener]
-;;                                   (let [fire! *fire*]
-;;                                     (set! (.-onclick el) #(listener fire! (dom/stop! %)))))
-;;                             :off (fn [el _]
-;;                                    (set! (.-onclick el) nil))})
+(install-plugin! :ev-change {:on (fn [el listener]
+                                   (let [fire! *fire*]
+                                     (if (nil? (.-checked el))
+                                       (set! (.-onchange el) #(listener fire! (do
+                                                                                (dom/stop! %)
+                                                                                (.-value el))))
+                                       (set! (.-onclick el) #(listener fire! (do
+                                                                               (.stopPropagation %)
+                                                                               (.-checked el)))))))
+                             :off (fn [el _]
+                                    (if (nil? (.-checked el))
+                                      (set! (.-onchange el) nil)
+                                      (set! (.-onclick el) nil)))})
 
-(event :click dom/stop!) ;; expands to comment above
+(event! :ev-click :click dom/stop!)
 
-(event :change #(-> % (dom/stop!) (.-target) (dom/value)))
+(event! :ev-dblclick :dblclick dom/stop!)
+
+;
+; Helpers
+;
+
+(defn classes
+  ([m]
+   (string/join " " (map (fn [[class on?]]
+                           (if on? (name class)))
+                         m)))
+  ([class on?] (if on? (name class)))
+  ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))

@@ -55,11 +55,11 @@
   ev)
 
 (defn value [el] ;; TODO: see https://github.com/component/value
-  (if (nil? (.-checked el))
-    (.-value el)
-    (.-checked el)))
+  (if (= "checkbox" (-> el .-type .toLowerCase))
+    (.-checked el)
+    (.-value el)))
 
 (defn set-value! [el val]
-  (if (nil? (.-checked el))
-    (set! (.-value el) (str val))
-    (set! (.-checked el) (boolean val))))
+  (if (= "checkbox" (-> el .-type .toLowerCase))
+    (set! (.-checked el) (boolean val))
+    (set! (.-value el) (str val))))

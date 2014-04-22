@@ -7,6 +7,16 @@
 (defn push!
   ([app signal val]
    (swap! app frp/push signal val)
+   nil)
+  ([app m]
+   (swap! app (fn [app]
+                (loop [app app
+                       [[s v] & rest] (seq m)]
+                  (if (seq rest)
+                    (recur (frp/push* app s v) rest)
+                    (if s
+                      (frp/push app s v)
+                      app)))))
    nil))
 
 (defn pull! [app signal]
