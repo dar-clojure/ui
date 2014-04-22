@@ -194,7 +194,7 @@
 
 (defrecord MapSwitch [name uid value input m sm sf reduce-fn init]
   ISignal
-  (-touch [this app] (touch-listeners app))
+  (-touch [this app] (touch-listeners app this))
 
   (-kill [this app gen] (-> app
                             (kill input gen this)
