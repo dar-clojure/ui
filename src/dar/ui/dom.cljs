@@ -1,6 +1,7 @@
 (ns dar.ui.dom
   (:refer-clojure :exclude [type key])
-  (:require [dar.ui.dom.browser :as dom]))
+  (:require [dar.ui.dom.browser :as dom])
+  (:require-macros [dar.ui.dom.macro :refer [event]]))
 
 (defprotocol IElement
   (type [this])
@@ -193,11 +194,22 @@
 
 (install-plugin! :key nil)
 (install-plugin! :soft-delete nil)
+
 (install-plugin! :html! {:on (fn [el html]
                                (set! (.-innerHTML el) html))})
 
-(install-plugin! :ev-click {:on (fn [el listener]
-                                  (let [fire! *fire*]
-                                    (set! (.-onclick el) #(listener fire! %))))
-                            :off (fn [el _]
-                                   (set! (.-onclick el) nil))})
+(install-plugin! :focus {:on (fn [el focus?]
+                               (when focus?
+                                 (.focus el)))})
+
+(install-plugin! :value {:on dom/set-value!})
+
+;; (install-plugin! :ev-click {:on (fn [el listener]
+;;                                   (let [fire! *fire*]
+;;                                     (set! (.-onclick el) #(listener fire! (dom/stop! %)))))
+;;                             :off (fn [el _]
+;;                                    (set! (.-onclick el) nil))})
+
+(event :click dom/stop!) ;; expands to comment above
+
+(event :change #(-> % (dom/stop!) (.-target) (dom/value)))

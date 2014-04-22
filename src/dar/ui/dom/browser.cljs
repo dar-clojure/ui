@@ -48,3 +48,18 @@
 (defn replace! [new-el old-el]
   (when-let [parent (.-parentNode old-el)]
     (.replaceChild parent new-el old-el)))
+
+(defn stop! [ev]
+  (.preventDefault ev)
+  (.stopPropagation ev)
+  ev)
+
+(defn value [el] ;; TODO: see https://github.com/component/value
+  (if (nil? (.-checked el))
+    (.-value el)
+    (.-checked el)))
+
+(defn set-value! [el val]
+  (if (nil? (.-checked el))
+    (set! (.-value el) (str val))
+    (set! (.-checked el) (boolean val))))
