@@ -246,3 +246,9 @@
   ([sf input] (map-switch cons nil sf input))
   ([reduce-fn init sf input]
    (->MapSwitch nil (new-uid) init input nil {} sf reduce-fn init)))
+
+(defn automaton [initial-state commands commands-signal]
+  (foldp (fn [state [cmd & args]]
+           (apply (commands cmd) state args))
+         initial-state
+         commands-signal))

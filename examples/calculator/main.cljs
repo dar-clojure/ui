@@ -1,7 +1,7 @@
 (ns calculator.main
   (:refer-clojure :exclude [key keys])
   (:require [dar.ui :refer [render!]]
-            [dar.ui.frp :refer [new-event foldp]]
+            [dar.ui.frp :as frp]
             [dar.ui.dom :refer [to]])
   (:require-macros [dar.ui.frp :refer [transform]]
                    [dar.ui.dom.elements :refer [TABLE TBODY TD TR DIV]]))
@@ -54,12 +54,6 @@
          (assoc state :memory (amount state)))
    :mr (fn [state]
          (assoc state :amount (:memory state)))})
-
-(defn state-sf [commands-signal]
-  (foldp (fn [state [cmd & args]]
-           (apply (on-command cmd) state args))
-         initial-state
-         commands-signal))
 
 (defn trim-right-char [s]
   (subs s 0 (dec (count s))))
@@ -117,9 +111,9 @@
        (key "=" [:eq] 2))]))
 
 (defn new-calc []
-  (let [commands (new-event)
+  (let [commands (frp/new-event)
         keys (keys commands)
-        state (state-sf commands)]
+        state (frp/automaton initial-state on-command commands)]
     (transform [s state]
       (TABLE nil
         (TBODY nil
