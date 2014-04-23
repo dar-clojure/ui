@@ -192,7 +192,7 @@
   ([x] x)
   ([x & xs] (apply (lift (fn [& xs] xs)) x xs)))
 
-(defrecord MapSwitch [name uid value input m sm sf reduce-fn init]
+(defrecord MapSwitch [name uid value input m sm sf reduce-fn init post]
   ISignal
   (-touch [this app] (touch-listeners app this))
 
@@ -237,15 +237,16 @@
                                                   [init app]
                                                   new-sm)]
                         [(assoc this
-                           :value new-val
+                           :value (post new-val)
                            :sm new-sm
                            :m new-m)
                          app])))
 
 (defn map-switch
-  ([sf input] (map-switch conj nil sf input))
-  ([reduce-fn init sf input]
-   (->MapSwitch nil (new-uid) init input nil {} sf reduce-fn init)))
+  ([sf input]
+   (->MapSwitch nil (new-uid) nil input nil {} sf conj nil identity))
+  ([sf {:keys [reduce init post] :or {:reduce conj :init nil :post identity}} input]
+   (->MapSwitch nil (new-uid) init input nil {} sf reduce init post)))
 
 (defn automaton [initial-state commands commands-signal]
   (foldp (fn [state [cmd & args]]
