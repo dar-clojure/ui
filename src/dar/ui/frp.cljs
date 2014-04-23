@@ -210,7 +210,7 @@
                                              (if (seq sm-seq)
                                                (let [[k [v in out]] (first sm-seq)
                                                      new-v (get m k ::nil)]
-                                                 (if (= ::nill new-v)
+                                                 (if (= ::nil new-v)
                                                    (recur (kill app out (:uid in) this)
                                                           m
                                                           (dissoc sm k)

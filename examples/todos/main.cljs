@@ -39,7 +39,8 @@
                   :ev-change (to commands (fn [c?]
                                             [:toggle id c?]))})
           (LABEL {:ev-dblclick (to editing? true)}
-            text))
+            text)
+          (BUTTON {:class "destroy" :ev-click (to commands [:delete id])}))
         (INPUT {:class "edit"
                 ::enter [text e?]
                 ::ev-text (to* (fn [text]

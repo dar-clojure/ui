@@ -30,7 +30,7 @@
   (all-siblings (.-firstChild el)))
 
 (defn all-children-reversed [el]
-  (all-siblings-reversed (.-lastChild el)))
+  (all-prev-siblings (.-lastChild el)))
 
 (defn children [el]
   (filter node? (all-children el)))
@@ -39,7 +39,7 @@
   (filter node? (all-children-reversed el)))
 
 (defn insert-after! [parent el ref]
-  (.insertBefore parent el (.-previousSibling ref)))
+  (.insertBefore parent el (and ref (.-previousSibling ref))))
 
 (defn remove! [el]
   (when-let [parent (.-parentNode el)]
