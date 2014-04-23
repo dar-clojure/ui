@@ -56,16 +56,16 @@
                                                old
                                                (dom/children parent)
                                                #(.appendChild parent %))]
-
     (when (seq new)
       (let [ref (.-previousSibling (first els))
             append! #(dom/insert-after! parent % ref)
-            [new old els] (update-sorted-part! (reverse new)
-                                               (reverse old)
-                                               (dom/children-reversed parent)
-                                               append!)]
+            [new old els] (update-non-sorted-part! (reverse new)
+                                                   (reverse old)
+                                                   (dom/children-reversed parent)
+                                                   append!)]
         (when (seq new)
-          (update-sorted-collection! new old els append!))))))
+          (let [ref (.-nextSibling (first els))]
+            (update-sorted-part! (reverse new) old els #(.insertBefore parent % ref))))))))
 
 ;
 ; Since we don't know what is the right data structure to represent regular HTML elements
