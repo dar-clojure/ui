@@ -2,7 +2,7 @@
   (:require [dar.ui :refer [render!]]
             [dar.ui.dom :as dom :refer [to to*]]
             [dar.ui.frp :as frp])
-  (:require-macros [dar.ui.dom.elements :refer [DIV H1 UL LI INPUT LABEL BUTTON HEADER SECTION]]
+  (:require-macros [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]
                    [dar.ui.dom.macro :refer [event!]]
                    [dar.ui.frp :refer [transform]]))
 
@@ -24,15 +24,41 @@
                             (assoc-in todos [id :text] text))
 
              :toggle (fn [todos id completed?]
-                       (assoc-in todos [id :completed?] completed?))}
+                       (assoc-in todos [id :completed?] completed?))
+
+             :toggle-all (fn [todos completed?]
+                           (reduce (fn [todos k]
+                                     (assoc-in todos [k :completed?] completed?))
+                                   todos
+                                   (keys todos)))
+
+             :clear-completed (fn [todos]
+                                (reduce (fn [todos [k {completed? :completed?}]]
+                                          (if completed?
+                                            (dissoc todos k)
+                                            todos))
+                                        todos todos))}
             commands))
+
+(def stats (transform [todos todos]
+             (let [completed (count (filter #(-> % second :completed?) todos))
+                   all (count todos)]
+               {:all-completed? (= all completed)
+                :all all
+                :completed completed
+                :left (- all completed)})))
+
+(def mode (frp/new-signal :all))
 
 (defn todo-item-sf [todo]
   (let [editing? (frp/new-signal false)]
     (transform [[id {:keys [text completed?]}] todo
-                e? editing?]
+                e? editing?
+                mode mode]
       (LI {:key id
-           :class (dom/classes :completed completed? :editing e?)}
+           :class (dom/classes :completed completed? :editing e?
+                               :hidden (or (and completed? (= mode :active))
+                                           (and (not completed?) (= mode :completed))))}
         (DIV {:class "view"}
           (INPUT {:class "toggle" :type "checkbox"
                   :value completed?
@@ -52,7 +78,9 @@
 
 (def main
   (transform [items (frp/map-switch todo-item-sf todos)
-              enter enter-new]
+              enter enter-new
+              {:keys [left all-completed? all completed]} stats
+              mode mode]
     (let [items (->> items (sort-by first) (map second))]
       (SECTION {:id "todoapp"}
         (HEADER {:id "header"}
@@ -65,9 +93,36 @@
                                    [(if text
                                       [commands [:new text]])
                                     [enter-new ["" true]]]))}))
-        (SECTION {:id "main"}
+
+        (SECTION {:id "main" :class (dom/classes :hidden (= all 0))}
+          (INPUT {:id "toggle-all" :type "checkbox"
+                  :value all-completed?
+                  :ev-change (to commands (fn [c?]
+                                            [:toggle-all c?]))})
           (UL {:id "todo-list"}
-            [items]))))))
+            [items]))
+
+        (FOOTER {:id "footer" :class (dom/classes :hidden (= all 0))}
+          (SPAN {:id "todo-count"}
+            (STRONG nil (str left))
+            (if (= left 1)
+              " item left"
+              " items left"))
+          (UL {:id "filters"}
+            (filter-link mode :all "All")
+            (filter-link mode :active "Active")
+            (filter-link mode :completed "Completed"))
+          (BUTTON {:id "clear-completed"
+                   :class (dom/classes :hidden (= 0 completed))
+                   :ev-click (to commands [:clear-completed])}
+            (str "Clear completed (" completed ")")))))))
+
+(defn filter-link [m type text]
+  (LI nil
+    (A {:href "#"
+        :class (dom/classes :selected (= m type))
+        :ev-click (to mode type)}
+      text)))
 
 (defn -main []
   (render! main (.getElementById js/document "todoapp")))
