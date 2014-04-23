@@ -73,8 +73,10 @@
     app))
 
 (defn push* [app signal val]
-  (let [s (-> app :signals (get (:uid signal) signal) (assoc :value val))]
-    (-> app (assoc-signal s) (touch-listeners s))))
+  (if-let [s (get-signal app (:uid signal))]
+    (let [s (assoc s :value val)]
+      (-> app (assoc-signal s) (touch-listeners s)))
+    app))
 
 (defn push [app signal val]
   (-> (push* app signal val)
