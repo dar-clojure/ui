@@ -9,4 +9,5 @@
         bindings (partition 2 bindings)
         params (map first bindings)
         signals (map second bindings)]
-    `((dar.ui.frp/lift (fn ~@name [~@params] ~@body)) ~@signals)))
+    `(->Transform nil (new-uid) nil false (fn ~@name [~@params] ~@body) [~@signals])))
+
