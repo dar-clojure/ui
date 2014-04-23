@@ -238,3 +238,5 @@
                          m)))
   ([class on?] (if on? (name class)))
   ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))
+
+(def tick dom/tick)

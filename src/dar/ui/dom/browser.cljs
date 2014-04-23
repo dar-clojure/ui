@@ -63,3 +63,6 @@
   (if (= "checkbox" (-> el .-type .toLowerCase))
     (set! (.-checked el) (boolean val))
     (set! (.-value el) (str val))))
+
+(defn tick [f]
+  (js/setTimeout f))

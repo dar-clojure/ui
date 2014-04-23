@@ -30,9 +30,7 @@
 (defn todo-item-sf [todo]
   (let [editing? (frp/new-signal false)]
     (transform [[id {:keys [text completed?]}] todo
-                e? editing?
-                enter-input (frp/to-event editing?)]
-      (print [text e?])
+                e? editing?]
       (LI {:key id
            :class (dom/classes :completed completed? :editing e?)}
         (DIV {:class "view"}
@@ -43,8 +41,7 @@
           (LABEL {:ev-dblclick (to editing? true)}
             text))
         (INPUT {:class "edit"
-                :value text
-                ::enter enter-input
+                ::enter [text e?]
                 ::ev-text (to* (fn [text]
                                  [(if text
                                     [commands [:change-text id text]])
@@ -54,7 +51,7 @@
 
 (def main
   (transform [items (frp/map-switch todo-item-sf todos)
-              enter? enter-new]
+              enter enter-new]
     (let [items (->> items (sort-by first) (map second))]
       (SECTION {:id "todoapp"}
         (HEADER {:id "header"}
@@ -62,11 +59,11 @@
           (INPUT {:id "new-todo"
                   :placeholder "What needs to be done?"
                   :autofocus true
-                  ::enter enter?
+                  ::enter enter
                   ::ev-text (to* (fn [text]
                                    [(if text
                                       [commands [:new text]])
-                                    [enter-new :clear]]))}))
+                                    [enter-new ["" true]]]))}))
         (SECTION {:id "main"}
           (UL {:id "todo-list"}
             [items]))))))
@@ -83,8 +80,7 @@
                                  27 false
                                  nil))))
 
-(dom/install-plugin! ::enter {:on (fn [el enter]
-                                    (when enter
-                                      (.select el))
-                                    (when (= enter :clear)
-                                      (set! (.-value el) "")))})
+(dom/install-plugin! ::enter {:on (fn [el [text focus?]]
+                                    (set! (.-value el) text)
+                                    (when focus?
+                                      (dom/tick #(.select el))))})
