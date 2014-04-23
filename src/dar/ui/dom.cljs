@@ -89,28 +89,28 @@
 ; Plugins
 ;
 
-(def plugins {})
+(def plugins (js-obj))
 
 (defrecord Plugin [on off])
 
 (defn install-plugin!
   [name plugin]
-  (def plugins (assoc plugins name (map->Plugin plugin))))
+  (aset plugins (str name) (map->Plugin plugin)))
 
 (defn on-plugin! [name el arg]
-  (when-let [{on! :on} (get plugins name)]
+  (when-let [{on! :on} (aget plugins (str name))]
     (when on!
       (on! el arg))
     true))
 
 (defn off-plugin! [name el arg]
-  (when-let [{off! :off} (get plugins name)]
+  (when-let [{off! :off} (aget plugins (str name))]
     (when off!
       (off! el arg))
     true))
 
 (defn update-plugin! [name el new-arg old-arg]
-  (when-let [{on! :on} (get plugins name)]
+  (when-let [{on! :on} (aget plugins (str name))]
     (when on!
       (on! el new-arg))
     true))
