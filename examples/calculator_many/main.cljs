@@ -6,7 +6,7 @@
                    [dar.ui.dom.elements :refer [DIV]]))
 
 (defn -main []
-  (render! (transform [calcs (apply join (repeatedly 1000 new-calc))]
+  (render! (transform [calcs (join (repeatedly 1000 new-calc))]
              (DIV {:id "calcs"}
                [calcs]))
            (.getElementById js/document "calcs")))

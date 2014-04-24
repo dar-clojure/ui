@@ -132,20 +132,24 @@
   (-update [this app] [this app])
   (-kill [{uid :uid} app gen] (update-in app [:signals] dissoc uid)))
 
-(defrecord Transform [name uid value event? fn inputs]
+(defrecord Transform [name uid value event? f inputs]
   ISignal
   (-touch [this app] (touch-listeners app this))
 
   (-kill [this app gen] (kill-many app inputs gen this))
 
   (-update [this app] (let [[input-vals app] (pull-values app inputs this)
-                            new-val (apply fn input-vals)
+                            new-val (f input-vals)
                             this (assoc this :value new-val)]
                         [this app])))
 
 (defn lift [function]
   (fn [& inputs]
-    (->Transform nil (new-uid) nil false function inputs)))
+    (->Transform nil (new-uid) nil false #(apply function %) inputs)))
+
+(defn join
+  ([xs] (->Transform nil (new-uid) nil false identity xs))
+  ([x & xs] (join (cons x xs))))
 
 (defrecord Switch [name uid value event? input current-signal]
   ISignal
@@ -189,10 +193,6 @@
 
 (defn foldp [f init signal]
   (->Foldp nil (new-uid) init f signal))
-
-(defn join
-  ([x] x)
-  ([x & xs] (apply (lift (fn [& xs] xs)) x xs)))
 
 (defrecord MapSwitch [name uid value input m sm sf reduce-fn init post]
   ISignal
@@ -257,4 +257,4 @@
          commands-signal))
 
 (defn to-event [signal]
-  (->Transform nil (new-uid) nil true identity [signal]))
+  (->Transform nil (new-uid) nil true first [signal]))
