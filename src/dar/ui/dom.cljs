@@ -125,11 +125,13 @@
     (if-let [[k v] (first kvs)]
       (let [old (get old-attrs k)]
         (when-not (or (identical? v old) (update-plugin! k el v old))
-          (.setAttribute el (name k) v))
+          (if (nil? v)
+            (.removeAttribute el (name k))
+            (.setAttribute el (name k) v)))
         (recur (next kvs) (dissoc old-attrs k)))
       (doseq [[k v] old-attrs]
         (when-not (off-plugin! k el v)
-          (.removeAttribute el k))))))
+          (.removeAttribute el (name k)))))))
 
 (extend-type Element
   IElement
@@ -140,7 +142,8 @@
                      (.appendChild el (create child)))
                    (doseq [[k v] (attributes this)]
                      (when-not (on-plugin! k el v)
-                       (.setAttribute el (name k) v)))
+                       (when-not (nil? v)
+                         (.setAttribute el (name k) v))))
                    el))
   (update! [new old el] (do
                           (let [new-children (children new)
@@ -233,9 +236,9 @@
 
 (defn classes
   ([m]
-   (string/join " " (map (fn [[class on?]]
-                           (if on? (name class)))
-                         m)))
+   (let [ret (string/join " " (->> m (filter second) (map #(-> % first name))))]
+     (if (seq ret)
+       ret)))
   ([class on?] (if on? (name class)))
   ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))
 
