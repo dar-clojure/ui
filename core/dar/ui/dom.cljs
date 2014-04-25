@@ -1,6 +1,6 @@
 (ns dar.ui.dom
   (:refer-clojure :exclude [type key])
-  (:require [dar.ui.dom.browser :as dom]
+  (:require [dar.ui.dom.util :as dom]
             [clojure.string :as string])
   (:require-macros [dar.ui.dom :refer [install-event!]]))
 
@@ -125,13 +125,11 @@
     (if-let [[k v] (first kvs)]
       (let [old (get old-attrs k)]
         (when-not (or (identical? v old) (update-plugin! k el v old))
-          (if (nil? v)
-            (.removeAttribute el (name k))
-            (.setAttribute el (name k) v)))
+          (dom/set-attribute! el k v))
         (recur (next kvs) (dissoc old-attrs k)))
       (doseq [[k v] old-attrs]
         (when-not (off-plugin! k el v)
-          (.removeAttribute el (name k)))))))
+          (dom/remove-attribute! el k))))))
 
 (extend-type Element
   IElement
@@ -142,8 +140,7 @@
                      (.appendChild el (create child)))
                    (doseq [[k v] (attributes this)]
                      (when-not (on-plugin! k el v)
-                       (when-not (nil? v)
-                         (.setAttribute el (name k) v))))
+                       (dom/add-attribute! el k v)))
                    el))
   (update! [new old el] (do
                           (let [new-children (children new)
@@ -240,5 +237,3 @@
        ret)))
   ([class on?] (if on? (name class)))
   ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))
-
-(def tick dom/tick)

@@ -1,6 +1,7 @@
 (ns todos.main
   (:require [dar.ui :refer [render!]]
-            [dar.ui.dom :as dom :refer [to to*]]
+            [dar.ui.dom :as dom :refer [to to* classes]]
+            [dar.ui.dom.util :refer [tick]]
             [dar.ui.frp :as frp])
   (:require-macros [dar.ui.frp :refer [transform]]
                    [dar.ui.dom :as dom]
@@ -56,9 +57,9 @@
                 e? editing?
                 mode mode]
       (LI {:key id
-           :class (dom/classes :completed completed? :editing e?
-                               :hidden (or (and completed? (= mode :active))
-                                           (and (not completed?) (= mode :completed))))}
+           :class (classes :completed completed? :editing e?
+                           :hidden (or (and completed? (= mode :active))
+                                       (and (not completed?) (= mode :completed))))}
         (DIV {:class "view"}
           (INPUT {:class "toggle" :type "checkbox"
                   :value completed?
@@ -94,7 +95,7 @@
                                       [commands [:new text]])
                                     [enter-new ["" true]]]))}))
 
-        (SECTION {:id "main" :class (dom/classes :hidden (= all 0))}
+        (SECTION {:id "main" :class (classes :hidden (= all 0))}
           (INPUT {:id "toggle-all" :type "checkbox"
                   :value all-completed?
                   :ev-change (to commands (fn [c?]
@@ -102,7 +103,7 @@
           (UL {:id "todo-list"}
             [items]))
 
-        (FOOTER {:id "footer" :class (dom/classes :hidden (= all 0))}
+        (FOOTER {:id "footer" :class (classes :hidden (= all 0))}
           (SPAN {:id "todo-count"}
             (STRONG nil (str left))
             (if (= left 1)
@@ -113,14 +114,14 @@
             (filter-link mode :active "Active")
             (filter-link mode :completed "Completed"))
           (BUTTON {:id "clear-completed"
-                   :class (dom/classes :hidden (= 0 completed))
+                   :class (classes :hidden (= 0 completed))
                    :ev-click (to commands [:clear-completed])}
             (str "Clear completed (" completed ")")))))))
 
 (defn filter-link [m type text]
   (LI nil
     (A {:href "#"
-        :class (dom/classes :selected (= m type))
+        :class (classes :selected (= m type))
         :ev-click (to mode type)}
       text)))
 
@@ -139,4 +140,4 @@
 (dom/install-plugin! ::enter {:on (fn [el [text focus?]]
                                     (set! (.-value el) text)
                                     (when focus?
-                                      (dom/tick #(.select el))))})
+                                      (tick #(.select el))))})

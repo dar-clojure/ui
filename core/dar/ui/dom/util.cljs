@@ -1,4 +1,4 @@
-(ns dar.ui.dom.browser)
+(ns dar.ui.dom.util)
 
 (defn element? [el]
   (= 1 (.-nodeType el)))
@@ -49,10 +49,47 @@
   (when-let [parent (.-parentNode old-el)]
     (.replaceChild parent new-el old-el)))
 
+(defn add-attribute! [el k v]
+  (when-not (nil? v)
+    (.setAttribute el (name k) v)))
+
+(defn remove-attribute! [el k]
+  (.removeAttribute el (name k)))
+
+(defn set-attribute! [el k v]
+  (if (nil? v)
+    (remove-attribute! el k)
+    (add-attribute! el k v)))
+
+(defn data [el k] ;; TODO: use WeakMap once it will become widely adopted
+  (aget el (str k)))
+
+(defn set-data! [el k v]
+  (aset el (str k) v))
+
+(defn bind! [el m]
+  (doseq [[k f] m]
+    (.addEventListener el (name k) f)))
+
+(defn unbind! [el m]
+  (doseq [[k f] m]
+    (.removeEventListener! el (name k) f)))
+
+(defn bind-group! [el group m]
+  (bind! el m)
+  (set-data! el group m))
+
+(defn unbind-group [el group]
+  (when-let [m (data el group)]
+    (unbind! el m)))
+
 (defn stop! [ev]
   (.preventDefault ev)
   (.stopPropagation ev)
   ev)
+
+(defn tick [f]
+  (js/setTimeout f))
 
 (defn value [el] ;; TODO: see https://github.com/component/value
   (if (= "checkbox" (-> el .-type .toLowerCase))
@@ -63,6 +100,3 @@
   (if (= "checkbox" (-> el .-type .toLowerCase))
     (set! (.-checked el) (boolean val))
     (set! (.-value el) (str val))))
-
-(defn tick [f]
-  (js/setTimeout f))
