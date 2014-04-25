@@ -1,10 +1,10 @@
-(ns dar.ui.dom.macro)
+(ns dar.ui.dom)
 
-(defmacro event! [type ev-type & [proc]]
+(defmacro install-event! [type ev-type & [proc]]
   (let [prop (symbol (str ".-on" (name ev-type)))
         proc (or proc `identity)]
     `(let [proc# ~proc]
-       (dar.ui.dom/install-plugin!
+       (install-plugin!
         ~type
         {:on (fn [el# listener#]
                (let [fire# dar.ui.dom/*fire*]

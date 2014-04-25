@@ -2,9 +2,9 @@
   (:require [dar.ui :refer [render!]]
             [dar.ui.dom :as dom :refer [to to*]]
             [dar.ui.frp :as frp])
-  (:require-macros [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]
-                   [dar.ui.dom.macro :refer [event!]]
-                   [dar.ui.frp :refer [transform]]))
+  (:require-macros [dar.ui.frp :refer [transform]]
+                   [dar.ui.dom :as dom]
+                   [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
 
 (enable-console-print!)
 
@@ -127,14 +127,14 @@
 (defn -main []
   (render! main (.getElementById js/document "todoapp")))
 
-(event! ::ev-text :keydown (fn [e]
-                             (let [key (.-keyCode e)
-                                   el (.-target e)
-                                   text (-> el .-value .trim)]
-                               (condp = key
-                                 13 text
-                                 27 false
-                                 nil))))
+(dom/install-event! ::ev-text :keydown (fn [e]
+                                         (let [key (.-keyCode e)
+                                               el (.-target e)
+                                               text (-> el .-value .trim)]
+                                           (condp = key
+                                             13 text
+                                             27 false
+                                             nil))))
 
 (dom/install-plugin! ::enter {:on (fn [el [text focus?]]
                                     (set! (.-value el) text)

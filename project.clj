@@ -3,8 +3,9 @@
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
                                   [dar/assets "0.0.1-SNAPSHOT"]]
                    :source-paths ["examples"]}}
+  :source-paths ["core" "components"]
   :target-path "build/target"
   :clean-targets ["build"]
   :assets {:build-dir "build/assets"
-           :pre-include ["dar/ui/components/css/normalize" "dar/ui/components/css/test"]
+           :pre-include ["dar/ui/css/normalize" "dar/ui/css/test"]
            :server-port 3000})

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [type key])
   (:require [dar.ui.dom.browser :as dom]
             [clojure.string :as string])
-  (:require-macros [dar.ui.dom.macro :refer [event!]]))
+  (:require-macros [dar.ui.dom :refer [install-event!]]))
 
 (defprotocol IElement
   (type [this])
@@ -226,10 +226,9 @@
                                       (set! (.-onchange el) nil)
                                       (set! (.-onclick el) nil)))})
 
-(event! :ev-click :click dom/stop!)
+(install-event! :ev-click :click dom/stop!)
 
-(event! :ev-dblclick :dblclick dom/stop!)
-
+(install-event! :ev-dblclick :dblclick dom/stop!)
 ;
 ; Helpers
 ;
