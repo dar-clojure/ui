@@ -1,4 +1,4 @@
-(ns dar.ui.dom.util)
+(ns dar.ui.dom.utils)
 
 (defn element? [el]
   (= 1 (.-nodeType el)))
@@ -67,22 +67,24 @@
 (defn set-data! [el k v]
   (aset el (str k) v))
 
-(defn bind! [el m]
-  (doseq [[k f] m]
-    (.addEventListener el (name k) f)))
+(defn listen!
+  ([el k f]
+   (.addEventListener el (name k) f))
+  ([el m]
+   (doseq [[k f] m]
+     (listen! el k f))))
 
-(defn unbind! [el m]
-  (doseq [[k f] m]
-    (.removeEventListener! el (name k) f)))
+(defn unlisten!
+  ([el k f]
+   (.removeEventListener el (name k) f))
+  ([el m]
+   (doseq [[k f] m]
+     (unlisten! el k f))))
 
-(defn bind-group! [el group m]
-  (bind! el m)
-  (set-data! el group m))
-
-(defn unbind-group! [el group]
-  (when-let [m (data el group)]
-    (set-data el group nil)
-    (unbind! el m)))
+(defn cleanup! [el k]
+  (when-let [f (data el k)]
+    (set-data! el k nil)
+    (f)))
 
 (defn stop! [ev]
   (.preventDefault ev)

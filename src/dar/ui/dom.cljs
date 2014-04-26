@@ -1,7 +1,8 @@
 (ns dar.ui.dom
   (:refer-clojure :exclude [type key])
-  (:require [dar.ui.dom.util :as dom]
-            [clojure.string :as string])
+  (:require [clojure.string :as string]
+            [dar.ui.dom.draggable :as draggable]
+            [dar.ui.dom.utils :as dom])
   (:require-macros [dar.ui.dom :refer [install-event!]]))
 
 (defprotocol IElement
@@ -226,6 +227,9 @@
 (install-event! :ev-click :click dom/stop!)
 
 (install-event! :ev-dblclick :dblclick dom/stop!)
+
+(install-plugin! :draggable draggable/plugin)
+
 ;
 ; Helpers
 ;

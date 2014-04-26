@@ -1,0 +1,14 @@
+.Draggable {
+  position: absolute;
+  width: 300px;
+  height: 150px;
+  top: 150px;
+  left: 150px;
+  background-color: rgb(150, 200, 150);
+}
+
+.Draggable--handle {
+  height: 20px;
+  background-color: #6a6;
+  -webkit-user-select: none;
+}
