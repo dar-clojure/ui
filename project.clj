@@ -3,7 +3,6 @@
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
                                   [dar/assets "0.0.1-SNAPSHOT"]]
                    :source-paths ["examples"]}}
-  :source-paths ["core" "components"]
   :target-path "build/target"
   :clean-targets ["build"]
   :assets {:build-dir "build/assets"

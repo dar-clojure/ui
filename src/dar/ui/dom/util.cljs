@@ -79,8 +79,9 @@
   (bind! el m)
   (set-data! el group m))
 
-(defn unbind-group [el group]
+(defn unbind-group! [el group]
   (when-let [m (data el group)]
+    (set-data el group nil)
     (unbind! el m)))
 
 (defn stop! [ev]
