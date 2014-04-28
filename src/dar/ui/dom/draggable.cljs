@@ -1,5 +1,5 @@
 (ns dar.ui.dom.draggable
-  (:require [dar.ui.dom.utils :as dom]))
+  (:require [dar.ui.dom.util :as dom]))
 
 (defn- ev-position [el e]
   (let [start (dom/data el ::start)

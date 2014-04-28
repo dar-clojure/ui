@@ -1,4 +1,4 @@
-(ns dar.ui.dom.utils)
+(ns dar.ui.dom.util)
 
 (defn element? [el]
   (= 1 (.-nodeType el)))

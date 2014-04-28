@@ -1,7 +1,7 @@
 (ns todos.main
   (:require [dar.ui :refer [render!]]
             [dar.ui.dom :as dom :refer [to to* classes]]
-            [dar.ui.dom.utils :refer [tick]]
+            [dar.ui.dom.util :refer [tick]]
             [dar.ui.frp :as frp])
   (:require-macros [dar.ui.frp :refer [transform]]
                    [dar.ui.dom :as dom]
