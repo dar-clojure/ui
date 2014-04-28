@@ -12,3 +12,11 @@
   background-color: #6a6;
   -webkit-user-select: none;
 }
+
+*[data-drag-phantom] {
+  opacity: 0.2;
+}
+
+*[data-drag-phantom][data-deleted] {
+  transition: top 0.3s, left 0.3s;
+}

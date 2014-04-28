@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [type key])
   (:require [clojure.string :as string]
             [dar.ui.dom.draggable :as draggable]
+            [dar.ui.dom.sortable :as sortable]
             [dar.ui.dom.util :as dom])
   (:require-macros [dar.ui.dom :refer [install-event!]]))
 
@@ -229,6 +230,8 @@
 (install-event! :ev-dblclick :dblclick dom/stop!)
 
 (install-plugin! :draggable draggable/plugin)
+
+(install-plugin! :sortable sortable/plugin)
 
 ;
 ; Helpers

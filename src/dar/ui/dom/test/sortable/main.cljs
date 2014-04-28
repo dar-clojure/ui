@@ -23,7 +23,8 @@
                            (str "Item " i))))))
 
 (def main (transform [order order]
-            (UL {:class "ControlGroup ControlGroup--vert Sortable"}
+            (UL {:class "ControlGroup ControlGroup--vert Sortable"
+                 :sortable true}
               [(map #(nth items %) order)])))
 
 
