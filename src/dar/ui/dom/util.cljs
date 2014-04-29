@@ -59,9 +59,7 @@
    (add-attribute! el k true))
   ([el k v]
    (when v
-     (.setAttribute el (name k) (if (true? v)
-                                  ""
-                                  v)))))
+     (.setAttribute el (name k) v))))
 
 (defn remove-attribute! [el k]
   (.removeAttribute el (name k)))
