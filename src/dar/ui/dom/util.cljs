@@ -49,17 +49,22 @@
   (when-let [parent (.-parentNode old-el)]
     (.replaceChild parent new-el old-el)))
 
-(defn add-attribute! [el k v]
-  (when-not (nil? v)
-    (.setAttribute el (name k) v)))
+(defn add-attribute!
+  ([el k]
+   (add-attribute! el k true))
+  ([el k v]
+   (when v
+     (.setAttribute el (name k) (if (true? v)
+                                  ""
+                                  v)))))
 
 (defn remove-attribute! [el k]
   (.removeAttribute el (name k)))
 
 (defn set-attribute! [el k v]
-  (if (nil? v)
-    (remove-attribute! el k)
-    (add-attribute! el k v)))
+  (if v
+    (add-attribute! el k v)
+    (remove-attribute! el k)))
 
 (defn data [el k] ;; TODO: use WeakMap once it will become widely adopted
   (aget el (str k)))
