@@ -55,17 +55,17 @@
 (defn handler [el stickiness cb]
   (fn [t e]
     (when (= :drag-start t)
-      (.setAttribute el "data-drag-start" ""))
+      (dom/add-attribute! el "data-drag-start"))
     (when (= :drag-end t)
-      (.removeAttribute el "data-drag-start")
+      (dom/remove-attribute! el "data-drag-start")
       (when (dragging? el)
-        (.removeAttribute el "data-dragging")
+        (dom/remove-attribute! el "data-dragging")
         (cb :drag-end e)))
     (when (= :drag-move t)
       (if (dragging? el)
         (cb :drag-move e)
         (when (>= (vlen (:move e)) stickiness)
-          (.setAttribute el "data-dragging" "")
+          (dom/add-attribute! el "data-dragging")
           (cb :drag-start e))))))
 
 (defn place-handler [el cb]
@@ -78,8 +78,8 @@
 
 (defn new-phantom! [el pos]
   (let [p (.cloneNode el true)]
-    (.setAttribute p "data-drag-phantom" "")
-    (.setAttribute p "data-virtual" "")
+    (dom/add-attribute! p "data-drag-phantom")
+    (dom/add-attribute! p "data-virtual")
     (place! p pos)
     (dom/set-data! el ::phantom p)
     (.appendChild js/document.body p)
@@ -94,7 +94,7 @@
     (when (= :drag-end t)
       (let [p (dom/data el ::phantom)]
         (dom/set-data! el ::phantom nil)
-        (.setAttribute p "data-deleted" "")
+        (dom/add-attribute! p "data-deleted")
         (dom/tick #(place! p (position el)))
         (js/setTimeout #(dom/remove! p) 500)))
     (cb t e)))

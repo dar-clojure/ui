@@ -71,6 +71,9 @@
     (add-attribute! el k v)
     (remove-attribute! el k)))
 
+(defn has-attribute? [el k]
+  (.hasAttribute el (name k)))
+
 (defn data [el k] ;; TODO: use WeakMap once it will become widely adopted
   (aget el (str k)))
 
