@@ -6,13 +6,12 @@
 (defn text-node? [el]
   (= 3 (.-nodeType el)))
 
-(defn deleted? [el]
-  (and (element? el)
-       (.hasAttribute el "data-deleted")))
+(defn virtual? [el]
+  (.hasAttribute el "data-virtual"))
 
 (defn node? [el]
-  (and (or (element? el) (text-node? el))
-       (not (deleted? el))))
+  (or (and (element? el) (not (virtual? el)))
+      (text-node? el)))
 
 (defn all-siblings [fst]
   (lazy-seq
@@ -44,6 +43,11 @@
 (defn remove! [el]
   (when-let [parent (.-parentNode el)]
     (.removeChild parent el)))
+
+(defn soft-remove! [el ms]
+  (add-attribute! el "data-virtual")
+  (add-attribute! el "data-deleted")
+  (js/setTimeout #(remove! el) ms))
 
 (defn replace! [new-el old-el]
   (when-let [parent (.-parentNode old-el)]

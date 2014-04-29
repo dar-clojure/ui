@@ -70,8 +70,7 @@
             (update-sorted-part! (reverse new) old els #(.insertBefore parent % ref))))))))
 
 ;
-; Since we don't know what is the right data structure to represent regular HTML elements
-; lets guard ourselfs with protocol
+; HTML Elements
 ;
 
 (defprotocol IHtml
@@ -154,10 +153,8 @@
                             (when-not (identical? new-attrs old-attrs)
                               (update-attributes! new-attrs old-attrs el)))
                           el))
-  (remove! [this el] (if (:soft-delete (attributes this))
-                       (do
-                         (.setAttribute el "data-deleted" true)
-                         (js/setTimeout #(dom/remove! el) 3000)) ;; TODO: it is probably better to use transition events
+  (remove! [this el] (if (:soft-remove (attributes this))
+                       (dom/soft-remove! el 3000)
                        (dom/remove! el))))
 
 ;
@@ -200,7 +197,7 @@
 ;
 
 (install-plugin! :key nil)
-(install-plugin! :soft-delete nil)
+(install-plugin! :soft-remove nil)
 
 (install-plugin! :html! {:on (fn [el html]
                                (set! (.-innerHTML el) html))})
