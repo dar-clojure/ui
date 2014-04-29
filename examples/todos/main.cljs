@@ -1,11 +1,9 @@
 (ns todos.main
-  (:require [dar.ui :refer [render!]]
-            [dar.ui.dom :as dom :refer [to to* classes]]
+  (:require [dar.ui :as ui :refer [to to* classes]]
             [dar.ui.dom.util :refer [tick]]
-            [dar.ui.frp :as frp])
-  (:require-macros [dar.ui.frp :refer [transform]]
-                   [dar.ui.dom :as dom]
-                   [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
+            [dar.ui.dom.core :as dom-core]
+            [dar.ui.frp :as frp :include-macros true :refer [transform]])
+  (:require-macros [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
 
 (enable-console-print!)
 
@@ -126,18 +124,18 @@
       text)))
 
 (defn -main []
-  (render! main (.getElementById js/document "todoapp")))
+  (ui/render! main (.getElementById js/document "todoapp")))
 
-(dom/install-event! ::ev-text :keydown (fn [e]
-                                         (let [key (.-keyCode e)
-                                               el (.-target e)
-                                               text (-> el .-value .trim)]
-                                           (condp = key
-                                             13 text
-                                             27 false
-                                             nil))))
+(dom-core/install-event! ::ev-text :keydown (fn [e]
+                                              (let [key (.-keyCode e)
+                                                    el (.-target e)
+                                                    text (-> el .-value .trim)]
+                                                (condp = key
+                                                  13 text
+                                                  27 false
+                                                  nil))))
 
-(dom/install-plugin! ::enter {:on (fn [el [text focus?]]
-                                    (set! (.-value el) text)
-                                    (when focus?
-                                      (tick #(.select el))))})
+(dom-core/install-plugin! ::enter {:on (fn [el [text focus?]]
+                                         (set! (.-value el) text)
+                                         (when focus?
+                                           (tick #(.select el))))})

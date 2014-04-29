@@ -1,10 +1,6 @@
-(ns dar.ui.dom
+(ns dar.ui.dom.core
   (:refer-clojure :exclude [type key])
-  (:require [clojure.string :as string]
-            [dar.ui.dom.draggable :as draggable]
-            [dar.ui.dom.sortable :as sortable]
-            [dar.ui.dom.util :as dom])
-  (:require-macros [dar.ui.dom :refer [install-event!]]))
+  (:require [dar.ui.dom.util :as dom]))
 
 (defprotocol IElement
   (type [this])
@@ -174,23 +170,25 @@
 ; events
 ;
 
-(def ^:dynamic *fire* nil)
+(def ^:dynamic *raise* nil)
 
-(defn to* [proc]
-  (fn [fire! val]
-    (let [events (filter (complement nil?) (proc val))]
-      (when (seq events)
-        (fire! events)))))
+(defn listener
+  ([cb] (partial cb *raise*))
+  ([proc cb]
+   (let [cb (listener cb)]
+     (fn [e]
+       (let [e (proc e)]
+         (when-not (nil? e)
+           (cb e)))))))
 
-(defn to
-  ([signal] (to signal nil))
-  ([signal proc]
-   (fn [fire! val]
-     (let [val (cond (fn? proc) (proc val)
-                     (nil? proc) val
-                     :else proc)]
-       (when-not (nil? val)
-         (fire! signal val))))))
+(defn install-event!
+  ([k event] (install-event! k event identity))
+  ([k event proc]
+   (let [setter (str "on" (name event))]
+     (install-plugin! k {:on (fn [el cb]
+                               (aset el setter (listener proc cb)))
+                         :off (fn [el _]
+                                (aset el setter nil))}))))
 
 ;
 ; built-in plugins
@@ -198,46 +196,3 @@
 
 (install-plugin! :key nil)
 (install-plugin! :soft-remove nil)
-
-(install-plugin! :html! {:on (fn [el html]
-                               (set! (.-innerHTML el) html))})
-
-(install-plugin! :focus {:on (fn [el focus?]
-                               (when focus?
-                                 (.focus el)))})
-
-(install-plugin! :value {:on dom/set-value!})
-
-(install-plugin! :ev-change {:on (fn [el listener]
-                                   (let [fire! *fire*]
-                                     (if (nil? (.-checked el))
-                                       (set! (.-onchange el) #(listener fire! (do
-                                                                                (dom/stop! %)
-                                                                                (.-value el))))
-                                       (set! (.-onclick el) #(listener fire! (do
-                                                                               (.stopPropagation %)
-                                                                               (.-checked el)))))))
-                             :off (fn [el _]
-                                    (if (nil? (.-checked el))
-                                      (set! (.-onchange el) nil)
-                                      (set! (.-onclick el) nil)))})
-
-(install-event! :ev-click :click dom/stop!)
-
-(install-event! :ev-dblclick :dblclick dom/stop!)
-
-(install-plugin! :draggable draggable/plugin)
-
-(install-plugin! :sortable sortable/plugin)
-
-;
-; Helpers
-;
-
-(defn classes
-  ([m]
-   (let [ret (string/join " " (->> m (filter second) (map #(-> % first name))))]
-     (if (seq ret)
-       ret)))
-  ([class on?] (if on? (name class)))
-  ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))

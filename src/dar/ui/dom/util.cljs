@@ -1,4 +1,5 @@
-(ns dar.ui.dom.util)
+(ns dar.ui.dom.util
+  (:require [clojure.string :as string]))
 
 (defn element? [el]
   (= 1 (.-nodeType el)))
@@ -112,3 +113,11 @@
   (if (= "checkbox" (-> el .-type .toLowerCase))
     (set! (.-checked el) (boolean val))
     (set! (.-value el) (str val))))
+
+(defn classes
+  ([m]
+   (let [ret (string/join " " (->> m (filter second) (map #(-> % first name))))]
+     (if (seq ret)
+       ret)))
+  ([class on?] (if on? (name class)))
+  ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))

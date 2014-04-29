@@ -1,8 +1,7 @@
 (ns calculator.main
   (:refer-clojure :exclude [key keys])
-  (:require [dar.ui :refer [render!]]
-            [dar.ui.frp :as frp]
-            [dar.ui.dom :refer [to]])
+  (:require [dar.ui :as ui :refer [to]]
+            [dar.ui.frp :as frp])
   (:require-macros [dar.ui.frp :refer [transform]]
                    [dar.ui.dom.elements :refer [TABLE TBODY TD TR DIV]]))
 
@@ -120,4 +119,4 @@
           [(cons (display s) keys)])))))
 
 (defn -main []
-  (render! (new-calc) (.getElementById js/document "calc")))
+  (ui/render! (new-calc) (.getElementById js/document "calc")))
