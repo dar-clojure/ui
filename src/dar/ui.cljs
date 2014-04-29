@@ -1,6 +1,6 @@
 (ns dar.ui
-  (:require [dar.ui.dom.core :as vdom]
-            [dar.ui.dom.util :as dom]
+  (:require [dar.ui.dom.core :as dom-core]
+            [dar.ui.dom.util :as dom-util]
             [dar.ui.dom.plugins]
             [dar.ui.frp :as frp]
             [dar.ui.frp.app :as a]))
@@ -10,13 +10,13 @@
   ([app main el]
    (let [html (a/pull! app main)
          push! (partial a/push! app)
-         el (binding [vdom/*raise* push!]
-              (vdom/update-element! html nil el))]
+         el (binding [dom-core/*raise* push!]
+              (dom-core/update-element! html nil el))]
      (a/watch! app (fn [new old]
                         (let [new-html (frp/probe new main)
                               old-html (frp/probe old main)]
-                          (binding [vdom/*raise* push!]
-                            (vdom/update-element! new-html old-html el)))))
+                          (binding [dom-core/*raise* push!]
+                            (dom-core/update-element! new-html old-html el)))))
      app)))
 
 (defn to* [proc]
@@ -37,4 +37,4 @@
 
 (def new-app a/new-app)
 
-(def classes dom/classes)
+(def classes dom-util/classes)
