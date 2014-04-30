@@ -4,8 +4,14 @@
   (:require-macros [dar.ui.dom.elements :refer [DIV]]))
 
 (def test
-  (DIV {:class "Draggable" :draggable true}
-    (DIV {:class "Draggable--handle"})))
+  (DIV nil
+    (DIV {:class "Win" :draggable {:handle ".Win--title"} :id "win1"}
+      (DIV {:class "Win--title"}
+        "Drag me"))
+
+    (DIV {:class "Win" :draggable {:stickiness 10} :id "win2"}
+      (DIV {:class "Win--title"}
+        "I am sticky"))))
 
 (defn -main []
   (let [el (.createElement js/document "div")]

@@ -10,6 +10,7 @@ ul.Sortable {
 }
 
 .Sortable-item {
+  list-style: none;
   text-align: center;
   padding: 1em 5em;
   border: 1px solid #ccc;
@@ -22,7 +23,7 @@ ul.Sortable {
   background-color: #eee;
 }
 
-.Sortable-item[data-dragging] {
+.Sortable-item[data-draggable-captured] {
   cursor: grabbing;
   cursor: -webkit-grabbing;
 }

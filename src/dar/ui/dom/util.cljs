@@ -1,5 +1,10 @@
 (ns dar.ui.dom.util
+  (:refer-clojure :exclude [get])
   (:require [clojure.string :as string]))
+
+(defn get
+  ([ctx q] (.querySelector ctx q))
+  ([q] (get js/document q)))
 
 (defn element? [el]
   (= 1 (.-nodeType el)))
@@ -40,6 +45,13 @@
 
 (defn insert-after! [parent el ref]
   (.insertBefore parent el (and ref (.-previousSibling ref))))
+
+(defn child? [el parent]
+  (if (identical? el parent)
+    true
+    (if el
+      (recur (.-parentNode el) parent)
+      false)))
 
 (defn remove! [el]
   (when-let [parent (.-parentNode el)]
