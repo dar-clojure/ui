@@ -135,7 +135,7 @@
                                                   27 false
                                                   nil))))
 
-(dom-core/install-plugin! ::enter {:on (fn [el [text focus?]]
-                                         (set! (.-value el) text)
-                                         (when focus?
-                                           (tick #(.select el))))})
+(dom-core/install-plugin! ::enter (fn [el [text focus?] _]
+                                    (set! (.-value el) text)
+                                    (when focus?
+                                      (tick #(.select el)))))

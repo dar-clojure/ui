@@ -83,18 +83,10 @@
          (main-handler el stickiness)
          (watch! el handle))))
 
-(def plugin
-  {:on (fn [el opts]
-         (when opts
-           (init-plugin! el opts)))
-
-   :update (fn [el new old]
-             (when-not new
-               (unwatch! el))
-             (when (and new (not old))
-               (init-plugin! el new))
-             (when (and new old)
-               (js/console.warn "Changes for properties of draggable are not supported")))
-
-   :off (fn [el _]
-          (unwatch! el))})
+(defn plugin [el new old]
+  (when-not new-opts
+    (unwatch! el))
+  (when (and new (not old))
+    (init-plugin! el new))
+  (when (and new old)
+    (js/console.warn "Changes for properties of draggable are not supported")))

@@ -88,29 +88,20 @@
 
 (def plugins (js-obj))
 
-(defrecord Plugin [on off])
-
 (defn install-plugin!
-  [name plugin]
-  (aset plugins (str name) (map->Plugin plugin)))
+  [name f]
+  (aset plugins (str name) f))
 
-(defn on-plugin! [name el arg]
-  (when-let [{on! :on} (aget plugins (str name))]
-    (when on!
-      (on! el arg))
+(defn update-plugin! [name el new old]
+  (when-let [plugin! (aget plugins (str name))]
+    (plugin! el new old)
     true))
 
-(defn off-plugin! [name el arg]
-  (when-let [{off! :off} (aget plugins (str name))]
-    (when off!
-      (off! el arg))
-    true))
+(defn add-plugin! [name el arg]
+  (update-plugin! name el arg nil))
 
-(defn update-plugin! [name el new-arg old-arg]
-  (when-let [{on! :on} (aget plugins (str name))]
-    (when on!
-      (on! el new-arg))
-    true))
+(defn remove-plugin! [name el arg]
+  (update-plugin! name el nil arg))
 
 ;
 ; Default IElement implementation for IHtml
@@ -125,7 +116,7 @@
           (dom/set-attribute! el k v))
         (recur (next kvs) (dissoc old-attrs k)))
       (doseq [[k v] old-attrs]
-        (when-not (off-plugin! k el v)
+        (when-not (remove-plugin! k el v)
           (dom/remove-attribute! el k))))))
 
 (extend-type Element
@@ -136,7 +127,7 @@
                    (doseq [child (children this)]
                      (.appendChild el (create child)))
                    (doseq [[k v] (attributes this)]
-                     (when-not (on-plugin! k el v)
+                     (when-not (add-plugin! k el v)
                        (dom/add-attribute! el k v)))
                    el))
   (update! [new old el] (do
@@ -185,10 +176,9 @@
   ([k event] (install-event! k event identity))
   ([k event proc]
    (let [setter (str "on" (name event))]
-     (install-plugin! k {:on (fn [el cb]
-                               (aset el setter (listener proc cb)))
-                         :off (fn [el _]
-                                (aset el setter nil))}))))
+     (install-plugin! k (fn [el cb]
+                          (aset el setter (if cb
+                                            (listener proc cb))))))))
 
 ;
 ; built-in plugins
