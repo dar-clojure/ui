@@ -113,10 +113,12 @@
           signals))
 
 (defn kill
-  ([app {uid :uid :as s}]
-   (-> (-kill s app)
-       (update-in [:signals] dissoc uid)
-       (update-in [:listeners] dissoc uid)))
+  ([app {uid :uid}]
+   (if-let [s (get-signal app uid)]
+     (-> (-kill s app)
+         (update-in [:signals] dissoc uid)
+         (update-in [:listeners] dissoc uid))
+     app))
   ([app {uid :uid :as s} listener]
    (let [listeners (-> app :listeners (get uid) (disj (:uid listener)))]
      (if (seq listeners)
