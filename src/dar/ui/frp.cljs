@@ -8,7 +8,7 @@
 (defprotocol ISignal
   (-touch [this app])
   (-update [this app])
-  (-kill [this app gen]))
+  (-kill [this app]))
 
 (defrecord App [signals listeners events outdate])
 
@@ -112,31 +112,33 @@
           [[] app]
           signals))
 
-(defn kill [app {uid :uid :as signal} gen listener]
-  (if (>= uid gen)
-    (let [app (-> app
-                  (update-in [:signals] dissoc uid)
-                  (update-in [:listeners] dissoc uid))]
-      (-kill signal app gen))
-    (if listener
-      (if-let [listeners (-> app :listeners (get (:uid listener)))]
-        (assoc-in app [:listeners uid] (disj listeners (:uid listener)))
-        app)
-      app)))
+(defn kill
+  ([app {uid :uid :as s}]
+   (-> (-kill s app)
+       (update-in [:signals] dissoc uid)
+       (update-in [:listeners] dissoc uid)))
+  ([app {uid :uid :as s} listener]
+   (let [listeners (-> app :listeners (get uid) (disj (:uid listener)))]
+     (if (seq listeners)
+       (assoc-in app [:listeners uid] listeners)
+       (kill app s)))))
 
-(defn kill-many [app signals gen listener]
-  (reduce #(kill %1 %2 gen listener) app signals))
+(defn kill-inputs [app signals listener]
+  (reduce #(kill %1 %2 listener) app signals))
+
+(defn kill-many [app signals]
+  (reduce kill app signals))
 
 (extend-protocol ISignal
   Signal
   (-update [this app] [this app])
-  (-kill [{uid :uid} app gen] (update-in app [:signals] dissoc uid)))
+  (-kill [_ app] app))
 
 (defrecord Transform [name uid value event? f inputs]
   ISignal
   (-touch [this app] (touch-listeners app this))
 
-  (-kill [this app gen] (kill-many app inputs gen this))
+  (-kill [this app] (kill-inputs app inputs this))
 
   (-update [this app] (let [[input-vals app] (pull-values app inputs this)
                             new-val (f input-vals)
@@ -155,33 +157,28 @@
   ISignal
   (-touch [this app] (touch-listeners app this))
 
-  (-kill [this app gen] (-> app
-                            (kill input gen this)
-                            (kill current-signal gen this)))
+  (-kill [this app] (-> app
+                        (kill input this)
+                        (kill current-signal this)))
 
   (-update [this app] (let [[new-signal app] (pull app input this)]
                         (if (= (:uid new-signal) (:uid current-signal))
                           (let [[new-val app] (pull app current-signal this)
                                 this (assoc this :value new-val)]
                             [this app])
-                          (let [app (kill app current-signal (::gen (meta current-signal)) this)
+                          (let [app (kill app current-signal this)
                                 [new-val app] (pull app new-signal this)
                                 this (assoc this :value new-val :current-signal new-signal)]
                             [this app])))))
 
-(defn switch [factory & inputs]
-  (let [input-sf (lift (fn [& args]
-                         (let [gen (new-uid)]
-                           (with-meta (apply factory args)
-                             {::gen gen}))))
-        input (apply input-sf inputs)]
-    (->Switch nil (new-uid) nil false input nil)))
+(defn switch [input]
+  (->Switch nil (new-uid) nil false input nil))
 
 (defrecord Foldp [name uid value fn input]
   ISignal
   (-touch [this app] (touch-listeners app this))
 
-  (-kill [this app gen] (kill app input gen this))
+  (-kill [this app] (kill app input this))
 
   (-update [this app] (let [[input-val app] (pull app input this)]
                         (if (and (nil? input-val)
@@ -198,9 +195,9 @@
   ISignal
   (-touch [this app] (touch-listeners app this))
 
-  (-kill [this app gen] (-> app
-                            (kill input gen this)
-                            (kill-many (map #(nth % 2) (vals sm)) gen this)))
+  (-kill [this app] (-> app
+                        (kill input this)
+                        (kill-many (map #(nth % 2) (vals sm)) this)))
 
   (-update [this app] (let [[new-m app] (pull app input this)
                             [new-sm app] (if (identical? new-m m)
@@ -213,7 +210,7 @@
                                                (let [[k [v in out]] (first sm-seq)
                                                      new-v (get m k ::nil)]
                                                  (if (= ::nil new-v)
-                                                   (recur (kill app out (:uid in) this)
+                                                   (recur (kill app out)
                                                           m
                                                           (dissoc sm k)
                                                           (next sm-seq))
