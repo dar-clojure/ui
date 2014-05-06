@@ -199,7 +199,7 @@
 
   (-kill [this app] (-> app
                         (kill input this)
-                        (kill-many (map #(nth % 2) (vals sm)) this)))
+                        (kill-many (map #(nth % 2) (vals sm)))))
 
   (-update [this app] (let [[new-m app] (pull app input this)
                             [new-sm app] (if (identical? new-m m)
