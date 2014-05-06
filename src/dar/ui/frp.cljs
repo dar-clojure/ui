@@ -257,3 +257,66 @@
 
 (defn to-event [signal]
   (->Transform nil (new-uid) nil true first [signal]))
+
+;
+; App
+;
+
+(defn new-app []
+  (atom (->App {} {} nil #{})))
+
+(def ^:dynamic *app* nil)
+
+(defn push!
+  ([app signal val]
+   (binding [*app* app]
+     (swap! app push signal val))
+   nil)
+  ([app m]
+   (binding [*app* app]
+     (swap! app (fn [app]
+                  (loop [app app
+                         [[s v] & rest] (seq m)]
+                    (if (seq rest)
+                      (recur (push* app s v) rest)
+                      (if s
+                        (push app s v)
+                        app))))))
+   nil))
+
+(defn watch! [app signal cb!]
+  (binding [*app* app]
+    (let [[v state] (pull @app signal)]
+      (reset! app state)
+      (cb! v nil)
+      (add-watch app (:uid signal) (fn [_ _ old new]
+                                     (let [old (probe old signal)
+                                           new (probe new signal)]
+                                       (when-not (identical? new old)
+                                         (cb! new old))))))))
+
+(defn clear! [app signal]
+  (remove-watch app (:uid signal))
+  (reset! app (kill @app signal)))
+
+(defrecord External [name uid value event? kill]
+  ISignal
+  (-update [this app] [this app])
+  (-kill [_ app] (when kill (kill)) app))
+
+(defn new-signal* [f]
+  (let [app *app*
+        uid (new-uid)
+        s (->External nil uid nil false nil)
+        {:keys [value kill]} (f (fn [v]
+                                  (if (nil? v)
+                                    (swap! app (fn [app]
+                                                 (if-let [s (get-signal app uid)]
+                                                   (assoc-in app [:signals uid] (assoc s :kill nil)) ; TODO - call kill here?
+                                                   app)))
+                                    (push! app s v))
+                                  nil))]
+    (assoc s :value value :kill kill)))
+
+(defn new-event* [f]
+  (as-event (new-event! f)))

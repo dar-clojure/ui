@@ -161,10 +161,10 @@
 ; events
 ;
 
-(def ^:dynamic *raise* nil)
+(def ^:dynamic *ctx* nil)
 
 (defn listener
-  ([cb] (partial cb *raise*))
+  ([cb] (partial cb *ctx*))
   ([proc cb]
    (let [cb (listener cb)]
      (fn [e]

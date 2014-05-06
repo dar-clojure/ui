@@ -2,39 +2,31 @@
   (:require [dar.ui.dom.core :as dom-core]
             [dar.ui.dom.util :as dom-util]
             [dar.ui.dom.plugins]
-            [dar.ui.frp :as frp]
-            [dar.ui.frp.app :as a]))
+            [dar.ui.frp :as frp]))
 
 (defn render!
-  ([main el] (render! (a/new-app) main el))
+  ([main el] (render! (frp/new-app) main el))
   ([app main el]
-   (let [html (a/pull! app main)
-         push! (partial a/push! app)
-         el (binding [dom-core/*raise* push!]
-              (dom-core/update-element! html nil el))]
-     (a/watch! app (fn [new old]
-                        (let [new-html (frp/probe new main)
-                              old-html (frp/probe old main)]
-                          (binding [dom-core/*raise* push!]
-                            (dom-core/update-element! new-html old-html el)))))
-     app)))
+   (let [el (atom el)]
+     (frp/watch! app main (fn [new-html old-html]
+                            (binding [dom-core/*ctx* app]
+                              (swap! el #(dom-core/update-element! new-html old-html %))))))
+   app))
 
 (defn to* [proc]
-  (fn [push! val]
+  (fn [app val]
     (let [events (filter (complement nil?) (proc val))]
       (when (seq events)
-        (push! events)))))
+        (frp/push! app events)))))
 
 (defn to
   ([signal] (to signal nil))
   ([signal proc]
-   (fn [push! val]
+   (fn [app val]
      (let [val (cond (fn? proc) (proc val)
                      (nil? proc) val
                      :else proc)]
        (when-not (nil? val)
-         (push! signal val))))))
-
-(def new-app a/new-app)
+         (frp/push! app signal val))))))
 
 (def classes dom-util/classes)
