@@ -282,19 +282,29 @@
                       app)))))
    nil))
 
-(defn watch! [app signal cb!]
+(defn pull! [app signal]
   (let [[v state] (pull @app signal)]
     (reset! app state)
-    (cb! v nil)
-    (add-watch app (:uid signal) (fn [_ _ old new]
-                                   (let [old (probe old signal)
-                                         new (probe new signal)]
-                                     (when-not (identical? new old)
-                                       (cb! new old)))))))
+    v))
 
-(defn clear! [app signal]
-  (remove-watch app (:uid signal))
-  (reset! app (kill @app signal)))
+(defn watch! [app signal cb!]
+  (let [s (->Transform nil (new-uid) nil (:event? signal) first [signal])]
+    (add-watch app (:uid s) (fn [_ _ old new]
+                              (let [old (probe old signal)
+                                    new (probe new signal)]
+                                (when-not (identical? new old)
+                                  (cb! new old)))))
+    (pull! app s)
+    s))
+
+(defn unwatch! [app s]
+  (remove-watch app (:uid s))
+  (swap! app kill signal)
+  nil)
+
+(defn stop! [app]
+  (doseq [[_ dispose!] (:disposables @app)]
+    (dispose!)))
 
 (defrecord Port [name uid value event? cb]
   ISignal
