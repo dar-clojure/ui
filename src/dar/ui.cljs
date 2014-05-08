@@ -1,7 +1,7 @@
 (ns dar.ui
   (:require [dar.ui.dom.core :as dom-core]
             [dar.ui.dom.util :as dom-util]
-            [dar.ui.dom.plugins]
+            [dar.ui.lib.plugins]
             [dar.ui.frp :as frp]))
 
 (defn render!

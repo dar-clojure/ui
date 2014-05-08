@@ -1,4 +1,4 @@
-(ns dar.ui.dom.util.dims)
+(ns dar.ui.util.dims)
 
 (defprotocol IBox
   (dims [this]))

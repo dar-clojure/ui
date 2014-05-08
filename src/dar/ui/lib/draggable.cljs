@@ -1,5 +1,8 @@
-(ns dar.ui.dom.draggable
-  (:require [dar.ui.dom.util :as dom]))
+(ns dar.ui.draggable
+  (:require [dar.ui.frp :as frp]
+            [dar.ui.dom.util :as dom]))
+
+(def mouse (frp/port (fn [push!])))
 
 (defn- event [el e]
   (let [start (dom/data el ::mouse-start)
