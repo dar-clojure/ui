@@ -250,6 +250,22 @@
   ([sf {:keys [reduce init post] :or {:reduce conj :init nil :post identity}} input]
    (->MapSwitch nil (new-uid) init input nil {} sf reduce init post)))
 
+(defrecord PullOnly [name uid value event? input]
+  ISignal
+  (-touch [this app] app)
+
+  (-kill [this app] (if input
+                      (kill app input this)
+                      app))
+
+  (-update [this app] (if input
+                        (let [[v app] (pull app input this)]
+                          [(assoc this :value v) app])
+                        [this app])))
+
+(defn pullonly [s]
+  (->PullOnly nil (new-uid) (:value s) (:event? s) s))
+
 (defn automaton [initial-state commands commands-signal]
   (foldp (fn [state [cmd & args]]
            (apply (commands cmd) state args))
