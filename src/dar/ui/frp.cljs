@@ -75,7 +75,7 @@
 (defn push* [app signal val]
   (if-let [s (get-signal app (:uid signal))]
     (let [s (assoc s :value val)]
-      (-> app (assoc-signal s) (touch-listeners s)))
+      (-touch s (assoc-signal app s)))
     app))
 
 (defn push [app signal val]
@@ -133,6 +133,7 @@
 
 (extend-protocol ISignal
   Signal
+  (-touch [this app] (touch-listeners app this))
   (-update [this app] [this app])
   (-kill [_ app] app))
 
@@ -308,6 +309,8 @@
 
 (defrecord Port [name uid value event? cb]
   ISignal
+  (-touch [this app] (touch-listeners app this))
+
   (-update [this app] (let [{:keys [value dispose]} (cb (fn [v]
                                                           (if (nil? v)
                                                             (swap! (:rt app) (fn [app]
