@@ -17,16 +17,16 @@
 (defn probe [app signal]
   (-> app :signals (get (:uid signal)) :value))
 
-(defn new-signal
+(defn signal
   ([name value] (->Signal name (new-uid) value false))
-  ([value] (new-signal nil value))
-  ([] (new-signal nil)))
+  ([value] (signal nil value))
+  ([] (signal nil)))
 
 (defn as-event [s]
   (assoc s :event? true))
 
-(defn new-event [& args]
-  (as-event (apply new-signal args)))
+(defn event [& args]
+  (as-event (apply signal args)))
 
 (defn get-signal [app uid]
   (-> app :signals (get uid)))
@@ -163,14 +163,14 @@
                         (kill input this)
                         (kill current-signal this)))
 
-  (-update [this app] (let [[new-signal app] (pull app input this)]
-                        (if (= (:uid new-signal) (:uid current-signal))
+  (-update [this app] (let [[signal app] (pull app input this)]
+                        (if (= (:uid signal) (:uid current-signal))
                           (let [[new-val app] (pull app current-signal this)
                                 this (assoc this :value new-val)]
                             [this app])
                           (let [app (kill app current-signal this)
-                                [new-val app] (pull app new-signal this)
-                                this (assoc this :value new-val :current-signal new-signal)]
+                                [new-val app] (pull app signal this)
+                                this (assoc this :value new-val :current-signal signal)]
                             [this app])))))
 
 (defn switch [input]
@@ -226,7 +226,7 @@
                                                             (assoc sm k [new-v in out])
                                                             (next sm-seq)))))
                                                [(reduce (fn [sm [k v]]
-                                                          (let [in (new-signal [k v])
+                                                          (let [in (signal [k v])
                                                                 out (sf in)]
                                                             (assoc sm k [v in out])))
                                                         sm
@@ -296,7 +296,7 @@
   (remove-watch app (:uid signal))
   (reset! app (kill @app signal)))
 
-(defrecord External [name uid value event? cb]
+(defrecord Port [name uid value event? cb]
   ISignal
   (-update [this app] (let [{:keys [value dispose]} (cb (fn [v]
                                                           (if (nil? v)
@@ -316,8 +316,8 @@
                      (update-in app [:disposables] dissoc uid))
                    app)))
 
-(defn new-signal* [f]
+(defn port [f]
   (->External nil (new-uid) nil false f))
 
-(defn new-event* [f]
-  (as-event (new-signal* f)))
+(defn event-port [f]
+  (as-event (port f)))

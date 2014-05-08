@@ -16,4 +16,4 @@
 (defn -main []
   (let [el (.createElement js/document "div")]
     (.appendChild (-> js/document .-body) el)
-    (render! (frp/new-signal test) el)))
+    (render! (frp/signal test) el)))

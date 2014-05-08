@@ -110,7 +110,7 @@
        (key "=" [:eq] 2))]))
 
 (defn new-calc []
-  (let [commands (frp/new-event)
+  (let [commands (frp/event)
         keys (keys commands)
         state (frp/automaton initial-state on-command commands)]
     (transform [s state]

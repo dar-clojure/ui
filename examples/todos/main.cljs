@@ -7,7 +7,7 @@
 
 (enable-console-print!)
 
-(def commands (frp/new-event))
+(def commands (frp/event))
 
 (def todos (frp/automaton
             {}
@@ -47,10 +47,10 @@
                 :completed completed
                 :left (- all completed)})))
 
-(def mode (frp/new-signal :all))
+(def mode (frp/signal :all))
 
 (defn todo-item-sf [todo]
-  (let [editing? (frp/new-signal false)]
+  (let [editing? (frp/signal false)]
     (transform [[id {:keys [text completed?]}] todo
                 e? editing?
                 mode mode]
@@ -73,7 +73,7 @@
                                     [commands [:change-text id text]])
                                   [editing? false]]))})))))
 
-(def enter-new (frp/new-event))
+(def enter-new (frp/event))
 
 (def main
   (transform [items (frp/map-switch todo-item-sf todos)
