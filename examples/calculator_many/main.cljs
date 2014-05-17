@@ -5,7 +5,7 @@
   (:require-macros [dar.ui.html :refer [DIV]]))
 
 (defn -main []
-  (ui/render! (frp/transform [calcs (frp/join (repeatedly 1000 new-calc))]
+  (ui/render! (frp/bind [calcs (frp/join (repeatedly 1000 new-calc))]
                 (DIV {:id "calcs"}
                   [calcs]))
               (.getElementById js/document "calcs")))

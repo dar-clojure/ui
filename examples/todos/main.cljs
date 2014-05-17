@@ -1,7 +1,7 @@
 (ns todos.main
   (:require [dar.ui :as ui :refer [to to* classes]]
             [dar.ui.dom :as dom]
-            [dar.ui.frp :as frp :include-macros true :refer [transform]])
+            [dar.ui.frp :as frp :include-macros true])
   (:require-macros [dar.ui.html :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
 
 (enable-console-print!)
@@ -38,7 +38,7 @@
                                         todos todos))}
             commands))
 
-(def stats (transform [todos todos]
+(def stats (frp/bind [todos todos]
              (let [completed (count (filter #(-> % second :completed?) todos))
                    all (count todos)]
                {:all-completed? (= all completed)
@@ -50,9 +50,9 @@
 
 (defn todo-item-sf [todo]
   (let [editing? (frp/signal false)]
-    (transform [[id {:keys [text completed?]}] todo
-                e? editing?
-                mode mode]
+    (frp/bind [[id {:keys [text completed?]}] todo
+               e? editing?
+               mode mode]
       (LI {:key id
            :class (classes :completed completed? :editing e?
                            :hidden (or (and completed? (= mode :active))
@@ -75,10 +75,10 @@
 (def enter-new (frp/event))
 
 (def main
-  (transform [items (frp/map-switch todo-item-sf todos)
-              enter enter-new
-              {:keys [left all-completed? all completed]} stats
-              mode mode]
+  (frp/bind [items (frp/map-switch todo-item-sf todos)
+             enter enter-new
+             {:keys [left all-completed? all completed]} stats
+             mode mode]
     (let [items (->> items (sort-by first) (map second))]
       (SECTION {:id "todoapp"}
         (HEADER {:id "header"}

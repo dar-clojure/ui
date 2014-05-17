@@ -1,6 +1,6 @@
 (ns dar.ui.frp)
 
-(defmacro transform [& args]
+(defmacro bind [& args]
   (let [name (if (symbol? (first args))
                [(first args)])
         [bindings & body] (if (symbol? (first args))

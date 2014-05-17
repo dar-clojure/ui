@@ -1,40 +1,83 @@
-(ns dar.ui.draggable
+(ns dar.ui.lib.draggable
   (:require [dar.ui.frp :as frp]
-            [dar.ui.dom.util :as dom]))
+            [dar.ui.dom.util :as dom]
+            [dar.ui.lib.event :as event]))
 
-(def mouse (frp/port (fn [push!])))
+(defn vlen [[x y]]
+  (js/Math.sqrt (+ (* x x) (* y y))))
 
-(defn- event [el e]
-  (let [start (dom/data el ::mouse-start)
-        pos [(.-clientX e) (.-clientY e)]
-        move (mapv - pos start)]
-    {:mouse-start mouse-start
-     :mouse-pos pos
-     :mouse-move move}))
+(defn mouse-position [e]
+  [(.-clientX e) (.-clientY e)])
 
-(defn watch!
-  ([el cb] (watch! el nil cb))
-  ([el handle cb]
-   (let [drag-events {:mousemove (fn [e]
-                                   (cb :drag-move (event el e)))
-                      :mouseup (fn [e]
-                                 (dom/cleanup! el ::drag-events)
-                                 (cb :drag-end (event el e)))}
-         start-events {:mousedown (fn [e]
-                                    (when (and (= 0 (.-button e))
-                                               (or (not handle)
-                                                   (dom/child? (.-target e) (dom/get el handle))))
-                                      (dom/stop! e)
-                                      (dom/set-data! el ::mouse-start [(.-clientX e) (.-clientY e)])
-                                      (dom/listen! js/window drag-events)
-                                      (dom/set-data! el ::drag-events #(dom/unlisten! js/window drag-events))
-                                      (cb :drag-start (event el e))))}]
-     (dom/listen! el start-events)
-     (dom/set-data! el ::start-events #(dom/unlisten! el start-events)))))
+(define :mousedown
+  :args [:el :handle]
+  :fn (fn [el handle]
+        (event/event el :mousedown (fn [e]
+                                     (when (and (= 0 (.-button e))
+                                                (or (not handle)
+                                                    (dom/child? (.-target e) (dom/get el handle))))
+                                       (dom/stop! e)
+                                       (mouse-position e))))))
 
-(defn unwatch! [el]
-  (dom/cleanup! el ::start-events)
-  (dom/cleanup! el ::drag-events))
+(define :mousemove
+  :args [:mousedown :mouseup]
+  :fn (fn [down? up?]
+        (frp/switch (frp/transform [down? down? _ up?]
+                      (when down?
+                        (event/event js/window :mousemove mouse-position))))))
+
+(define :mouseup
+  :args [mousedown]
+  :fn (fn [down?]
+        (frp/switch (frp/transform [down? down?]
+                      (when down?
+                        (event/once js/window :mouseup)))))) ;; hack, FIXME
+
+(define :capture
+  :args [:mousedown]
+  :fn identity)
+
+(define :endcapture
+  :args [:mouseup]
+  :fn identity)
+
+(define :pointer-start-pos
+  :args [:capture]
+  :fn to-signal)
+
+(define :pointer-pos
+  :args [:mousemove]
+  :fn (fn [pos]
+        (frp/foldp #(or %2 %1) [0 0] pos)))
+
+(define :pointer-move
+  :args [:pointer-start-pos :pointer-pos]
+  :fn (frp/lift #(mapv - %2 %1)))
+
+(define :captured?
+  :args [:capture :endcapture]
+  :fn (frp/lift (fn [c? _]
+                  (boolean c?))))
+
+(define el-start-pos [el capture]
+  (frp/<- (fn [_] [(.-offsetLeft el) (.-offsetTop el)])
+          capture))
+
+(define dragging? [move endcapture stickiness]
+  (frp/foldp (fn [prev? move end?]
+               (cond end? false
+                     prev? true
+                     :else (>= (vlen move) stickiness)))
+             move
+             endcapture))
+
+(define watch-capture-attr [el app captured?]
+  (frp/watch! app captured? (fn [c? _]
+                              (dom/set-attribute! el :data-dragging c?))))
+
+(define watch-dragging-attr [el app dragging?]
+  (frp/watch! app captured? (fn [d? _]
+                              (dom/set-attribute! el :data-dragging d?))))
 
 (defn place! [el [x y]]
   (let [s (.-style el)]
@@ -42,54 +85,32 @@
     (set! (.-left s) (str x "px"))
     (set! (.-top s) (str y "px"))))
 
-(defn vlen [[x y]]
-  (js/Math.sqrt (+ (* x x) (* y y))))
+(define watch-element-pos [el app move el-start-pos dragging?]
+  (frp/watch! app
+              (frp/transform [move move
+                              start-pos el-start-pos
+                              dragging? dragging?]
+                (when dragging?
+                  (mapv + start-pos move)))
+              (fn [pos _]
+                (when pos
+                  (place! el pos)))))
 
-(defn dragging? [el]
-  (.hasAttribute el "data-dragging"))
+(define :start
+  :pre [:watch-capture-attr :watch-dragging-attr :watch-element-pos]
+  :dispose true
+  :args [:app]
+  :fn (fn [app]
+        (reify c/IDisposable
+          (dispose [_] (frp/dispose! app)))))
 
-(defn main-handler
-  ([el cb] (main-handler el 0 cb))
-  ([el stickiness cb]
-   (fn [t e]
-     (when (= :drag-start t)
-       (dom/add-attribute! el "data-draggable-captured"))
-     (when (= :drag-end t)
-       (dom/remove-attribute! el "data-draggable-captured")
-       (when (dragging? el)
-         (dom/remove-attribute! el "data-dragging")
-         (cb :drag-end e)))
-     (when (= :drag-move t)
-       (if (dragging? el)
-         (cb :drag-move e)
-         (when (>= (vlen (:mouse-move e)) stickiness)
-           (dom/add-attribute! el "data-dragging")
-           (cb :drag-start e)))))))
-
-(defn position [el]
-  [(.-offsetLeft el) (.-offsetTop el)])
-
-(defn place-handler [el cb]
-  (fn [t e]
-    (when (= :drag-start t)
-      (dom/set-data! el ::start (position el)))
-    (let [start (dom/data el ::start)
-          move (:mouse-move e)
-          pos (mapv + start move)]
-      (place! el pos)
-      (cb t (assoc e :pos pos :start start)))))
-
-(defn init-plugin! [el opts]
-  (let [[handle stickiness] (if (map? opts)
-                              [(:handle opts) (:stickiness opts)])]
-    (->> (place-handler el (fn [_ _]))
-         (main-handler el stickiness)
-         (watch! el handle))))
-
-(defn plugin [el new old]
-  (when-not new-opts
-    (unwatch! el))
-  (when (and new (not old))
-    (init-plugin! el new))
-  (when (and new old)
-    (js/console.warn "Changes for properties of draggable are not supported")))
+(defn plugin [el opts old-opts]
+  (when old-opts
+    (let [app (dom/data el ::draggable)]
+      (c/stop! app)
+      (dom/set-data! el ::draggable nil)))
+  (when opts
+    (let [app (c/start draggable (merge opts {:el el}))]
+      (dom/set-data! el ::draggable app)
+      (c/eval! app :start)
+      nil)))

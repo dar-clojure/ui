@@ -112,7 +112,7 @@
   (let [commands (frp/event)
         keys (keys commands)
         state (frp/automaton initial-state on-command commands)]
-    (frp/transform [s state]
+    (frp/bind [s state]
       (TABLE nil
         (TBODY nil
           [(cons (display s) keys)])))))
