@@ -1,4 +1,4 @@
-(ns dar.ui.dom.util
+(ns dar.ui.dom
   (:refer-clojure :exclude [get])
   (:require [clojure.string :as string]))
 
@@ -46,6 +46,24 @@
 (defn insert-after! [parent el ref]
   (.insertBefore parent el (and ref (.-previousSibling ref))))
 
+(defn add-attribute!
+  ([el k]
+   (add-attribute! el k true))
+  ([el k v]
+   (when v
+     (.setAttribute el (name k) v))))
+
+(defn remove-attribute! [el k]
+  (.removeAttribute el (name k)))
+
+(defn set-attribute! [el k v]
+  (if v
+    (add-attribute! el k v)
+    (remove-attribute! el k)))
+
+(defn has-attribute? [el k]
+  (.hasAttribute el (name k)))
+
 (defn child? [el parent]
   (if (identical? el parent)
     true
@@ -66,48 +84,11 @@
   (when-let [parent (.-parentNode old-el)]
     (.replaceChild parent new-el old-el)))
 
-(defn add-attribute!
-  ([el k]
-   (add-attribute! el k true))
-  ([el k v]
-   (when v
-     (.setAttribute el (name k) v))))
-
-(defn remove-attribute! [el k]
-  (.removeAttribute el (name k)))
-
-(defn set-attribute! [el k v]
-  (if v
-    (add-attribute! el k v)
-    (remove-attribute! el k)))
-
-(defn has-attribute? [el k]
-  (.hasAttribute el (name k)))
-
 (defn data [el k] ;; TODO: use WeakMap once it will become widely adopted
   (aget el (str k)))
 
 (defn set-data! [el k v]
   (aset el (str k) v))
-
-(defn listen!
-  ([el k f]
-   (.addEventListener el (name k) f))
-  ([el m]
-   (doseq [[k f] m]
-     (listen! el k f))))
-
-(defn unlisten!
-  ([el k f]
-   (.removeEventListener el (name k) f))
-  ([el m]
-   (doseq [[k f] m]
-     (unlisten! el k f))))
-
-(defn cleanup! [el k]
-  (when-let [f (data el k)]
-    (set-data! el k nil)
-    (f)))
 
 (defn stop! [ev]
   (.preventDefault ev)
@@ -126,11 +107,3 @@
   (if (= "checkbox" (-> el .-type .toLowerCase))
     (set! (.-checked el) (boolean val))
     (set! (.-value el) (str val))))
-
-(defn classes
-  ([m]
-   (let [ret (string/join " " (->> m (filter second) (map #(-> % first name))))]
-     (if (seq ret)
-       ret)))
-  ([class on?] (if on? (name class)))
-  ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))

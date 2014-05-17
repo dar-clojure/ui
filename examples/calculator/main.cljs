@@ -1,9 +1,8 @@
 (ns calculator.main
   (:refer-clojure :exclude [key keys])
   (:require [dar.ui :as ui :refer [to]]
-            [dar.ui.frp :as frp])
-  (:require-macros [dar.ui.frp :refer [transform]]
-                   [dar.ui.dom.elements :refer [TABLE TBODY TD TR DIV]]))
+            [dar.ui.frp :as frp :include-macros true])
+  (:require-macros [dar.ui.html :refer [TABLE TBODY TD TR DIV]]))
 
 (def initial-state {:digits nil
                     :decimal-point nil
@@ -113,7 +112,7 @@
   (let [commands (frp/event)
         keys (keys commands)
         state (frp/automaton initial-state on-command commands)]
-    (transform [s state]
+    (frp/transform [s state]
       (TABLE nil
         (TBODY nil
           [(cons (display s) keys)])))))

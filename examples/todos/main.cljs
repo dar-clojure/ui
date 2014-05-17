@@ -1,9 +1,8 @@
 (ns todos.main
   (:require [dar.ui :as ui :refer [to to* classes]]
-            [dar.ui.dom.util :refer [tick]]
-            [dar.ui.dom.core :as dom-core]
+            [dar.ui.dom :as dom]
             [dar.ui.frp :as frp :include-macros true :refer [transform]])
-  (:require-macros [dar.ui.dom.elements :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
+  (:require-macros [dar.ui.html :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
 
 (enable-console-print!)
 
@@ -124,18 +123,18 @@
       text)))
 
 (defn -main []
-  (ui/render! main (.getElementById js/document "todoapp")))
+  (ui/render! main (dom/get "#todoapp")))
 
-(dom-core/install-event! ::ev-text :keydown (fn [e]
-                                              (let [key (.-keyCode e)
-                                                    el (.-target e)
-                                                    text (-> el .-value .trim)]
-                                                (condp = key
-                                                  13 text
-                                                  27 false
-                                                  nil))))
+(ui/install-event! ::ev-text :keydown (fn [e]
+                                        (let [key (.-keyCode e)
+                                              el (.-target e)
+                                              text (-> el .-value .trim)]
+                                          (condp = key
+                                            13 text
+                                            27 false
+                                            nil))))
 
-(dom-core/install-plugin! ::enter (fn [el [text focus?] _]
-                                    (set! (.-value el) text)
-                                    (when focus?
-                                      (tick #(.select el)))))
+(ui/install-plugin! ::enter (fn [el [text focus?] _]
+                              (set! (.-value el) text)
+                              (when focus?
+                                (dom/tick #(.select el)))))

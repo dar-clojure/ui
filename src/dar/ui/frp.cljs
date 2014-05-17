@@ -156,6 +156,9 @@
   ([xs] (->Transform nil (new-uid) nil false identity xs))
   ([x & xs] (join (cons x xs))))
 
+(defn <- [f input]
+  (->Transform nil (new-uid) nil false #(-> % first f) [signal]))
+
 (defrecord Switch [name uid value event? input current-signal]
   ISignal
   (-touch [this app] (touch-listeners app this))
@@ -275,6 +278,9 @@
 (defn to-event [signal]
   (->Transform nil (new-uid) nil true first [signal]))
 
+(defn to-signal [event]
+  (->Transform nil (new-uid) nil false first [signal]))
+
 ;
 ; App
 ;
@@ -319,7 +325,7 @@
   (swap! app kill signal)
   nil)
 
-(defn stop! [app]
+(defn dispose! [app]
   (doseq [[_ dispose!] (:disposables @app)]
     (dispose!)))
 
