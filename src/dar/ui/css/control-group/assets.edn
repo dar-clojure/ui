@@ -1,3 +1,0 @@
-{:css ["control-group.css"]
- :main-html "test.html"
- :development ["dar/ui/css/controls"]}

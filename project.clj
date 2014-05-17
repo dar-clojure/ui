@@ -6,5 +6,4 @@
   :target-path "build/target"
   :clean-targets ["build"]
   :assets {:build-dir "build/assets"
-           :pre-include ["dar/ui/css/normalize" "dar/ui/css/test"]
            :server-port 3000})
