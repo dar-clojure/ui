@@ -1,3 +1,3 @@
 {:css ["draggable.css"]
- :cljs [dar.ui.dom.test.draggable.main]
- :main-ns dar.ui.dom.test.draggable.main}
+ :cljs [dar.ui.lib.test.draggable.main]
+ :main-ns dar.ui.lib.test.draggable.main}

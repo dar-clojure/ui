@@ -1,7 +1,9 @@
 (ns dar.ui.lib.draggable
-  (:require [dar.ui.frp :as frp]
-            [dar.ui.dom.util :as dom]
-            [dar.ui.lib.event :as event]))
+  (:require [dar.ui.frp :as frp :include-macros true]
+            [dar.ui.dom :as dom]
+            [dar.ui.lib.event :as event]
+            [dar.container :as co])
+  (:require-macros [dar.container.macro :refer [define] :as co]))
 
 (defn vlen [[x y]]
   (js/Math.sqrt (+ (* x x) (* y y))))
@@ -9,29 +11,32 @@
 (defn mouse-position [e]
   [(.-clientX e) (.-clientY e)])
 
+(define :handle nil)
+
 (define :mousedown
   :args [:el :handle]
   :fn (fn [el handle]
         (event/event el :mousedown (fn [e]
                                      (when (and (= 0 (.-button e))
-                                                (or (not handle)
-                                                    (dom/child? (.-target e) (dom/get el handle))))
+                                             (or (not handle)
+                                               (dom/child? (.-target e) (dom/get el handle))))
                                        (dom/stop! e)
                                        (mouse-position e))))))
 
 (define :mousemove
   :args [:mousedown :mouseup]
   :fn (fn [down? up?]
-        (frp/switch (frp/transform [down? down? _ up?]
+        (frp/switch (frp/bind [down? down? _ up?]
                       (when down?
-                        (event/event js/window :mousemove mouse-position))))))
+                        (event/signal js/window :mousemove mouse-position))))))
 
 (define :mouseup
-  :args [mousedown]
+  :args [:mousedown]
   :fn (fn [down?]
-        (frp/switch (frp/transform [down? down?]
-                      (when down?
-                        (event/once js/window :mouseup)))))) ;; hack, FIXME
+        (frp/as-event
+          (frp/switch (frp/bind [down? down?]
+                        (when down?
+                          (event/once js/window :mouseup boolean))))))) ;; hack, FIXME
 
 (define :capture
   :args [:mousedown]
@@ -43,41 +48,54 @@
 
 (define :pointer-start-pos
   :args [:capture]
-  :fn to-signal)
+  :fn frp/to-signal)
 
 (define :pointer-pos
   :args [:mousemove]
-  :fn (fn [pos]
-        (frp/foldp #(or %2 %1) [0 0] pos)))
+  :fn identity)
 
 (define :pointer-move
-  :args [:pointer-start-pos :pointer-pos]
-  :fn (frp/lift #(mapv - %2 %1)))
+  :args [:pointer-pos :pointer-start-pos ]
+  :fn (frp/lift (fn [p2 p1]
+                  (if p2
+                    (mapv - p2 p1)
+                    [0 0]))))
 
 (define :captured?
   :args [:capture :endcapture]
   :fn (frp/lift (fn [c? _]
                   (boolean c?))))
 
-(define el-start-pos [el capture]
-  (frp/<- (fn [_] [(.-offsetLeft el) (.-offsetTop el)])
-          capture))
+(define :el-start-pos
+  :args [:el :capture]
+  :fn (fn [el capture]
+        (frp/<- (fn [_] [(.-offsetLeft el) (.-offsetTop el)])
+          capture)))
 
-(define dragging? [move endcapture stickiness]
-  (frp/foldp (fn [prev? move end?]
-               (cond end? false
-                     prev? true
-                     :else (>= (vlen move) stickiness)))
-             move
-             endcapture))
+(define :dragging?
+  :args [:pointer-move :captured? :stickiness]
+  :fn (fn [move captured? stickiness]
+        (frp/foldp (fn [prev? [move c?]]
+                     (cond
+                       (not c?) false
+                       prev? true
+                       :else (>= (vlen move) stickiness)))
+          false
+          (frp/join move captured?))))
 
-(define watch-capture-attr [el app captured?]
-  (frp/watch! app captured? (fn [c? _]
-                              (dom/set-attribute! el :data-dragging c?))))
+(define :stickiness 0)
 
-(define watch-dragging-attr [el app dragging?]
-  (frp/watch! app captured? (fn [d? _]
-                              (dom/set-attribute! el :data-dragging d?))))
+(define :watch-captured-attr
+  :args [:el :app :captured?]
+  :fn (fn [el app captured?]
+        (frp/watch! app captured? (fn [c? _]
+                                    (dom/set-attribute! el :data-draggable-captured c?)))))
+
+(define :watch-dragging-attr
+  :args [:el :app :dragging?]
+  :fn (fn [el app d?]
+        (frp/watch! app d? (fn [d? _]
+                             (dom/set-attribute! el :data-draggable-dragging d?)))))
 
 (defn place! [el [x y]]
   (let [s (.-style el)]
@@ -85,32 +103,36 @@
     (set! (.-left s) (str x "px"))
     (set! (.-top s) (str y "px"))))
 
-(define watch-element-pos [el app move el-start-pos dragging?]
-  (frp/watch! app
-              (frp/transform [move move
-                              start-pos el-start-pos
-                              dragging? dragging?]
-                (when dragging?
-                  (mapv + start-pos move)))
-              (fn [pos _]
-                (when pos
-                  (place! el pos)))))
+(define :watch-element-pos
+  :args [:el :app :pointer-move :el-start-pos :dragging?]
+  :fn (fn [el app pointer-move el-start-pos dragging?]
+        (print "watch pos")
+        (frp/watch! app
+          (frp/bind [move pointer-move
+                     start-pos el-start-pos
+                     dragging? dragging?]
+            (when dragging?
+              (mapv + start-pos move)))
+          (fn [pos _]
+            (when pos
+              (place! el pos))))))
 
-(define :start
-  :pre [:watch-capture-attr :watch-dragging-attr :watch-element-pos]
-  :dispose true
-  :args [:app]
-  :fn (fn [app]
-        (reify c/IDisposable
-          (dispose [_] (frp/dispose! app)))))
+(define :app
+  :fn #(frp/new-app))
+
+(define :init
+  :args [:watch-captured-attr :watch-dragging-attr :watch-element-pos]
+  :fn (fn [& _] ))
+
+(def draggable (co/make))
 
 (defn plugin [el opts old-opts]
   (when old-opts
     (let [app (dom/data el ::draggable)]
-      (c/stop! app)
+      (co/stop! app)
       (dom/set-data! el ::draggable nil)))
   (when opts
-    (let [app (c/start draggable (merge opts {:el el}))]
+    (let [app (co/start draggable (merge opts {:el el}))]
       (dom/set-data! el ::draggable app)
-      (c/eval! app :start)
-      nil)))
+      (co/eval app :init)
+      (co/eval app :watch-element-pos)))) ; ???

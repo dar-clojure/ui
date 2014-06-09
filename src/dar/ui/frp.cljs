@@ -157,7 +157,9 @@
   ([x & xs] (join (cons x xs))))
 
 (defn <- [f input]
-  (->Transform nil (new-uid) nil false #(-> % first f) [signal]))
+  (->Transform nil (new-uid) nil false #(-> % first f) [input]))
+
+(def nil-signal (signal))
 
 (defrecord Switch [name uid value event? input current-signal]
   ISignal
@@ -167,14 +169,15 @@
                         (kill input this)
                         (kill current-signal this)))
 
-  (-update [this app] (let [[signal app] (pull app input this)]
-                        (if (= (:uid signal) (:uid current-signal))
+  (-update [this app] (let [[s app] (pull app input this)
+                            s (or s nil-signal)]
+                        (if (= (:uid s) (:uid current-signal))
                           (let [[new-val app] (pull app current-signal this)
                                 this (assoc this :value new-val)]
                             [this app])
                           (let [app (kill app current-signal this)
-                                [new-val app] (pull app signal this)
-                                this (assoc this :value new-val :current-signal signal)]
+                                [new-val app] (pull app s this)
+                                this (assoc this :value new-val :current-signal s)]
                             [this app])))))
 
 (defn switch [input]
@@ -194,8 +197,8 @@
                                 this (assoc this :value new-val)]
                             [this app])))))
 
-(defn foldp [f init signal]
-  (->Foldp nil (new-uid) init f signal))
+(defn foldp [f init s]
+  (->Foldp nil (new-uid) init f s))
 
 (defrecord MapSwitch [name uid value input m sm sf reduce-fn init post]
   ISignal
@@ -275,11 +278,11 @@
          initial-state
          commands-signal))
 
-(defn to-event [signal]
-  (->Transform nil (new-uid) nil true first [signal]))
+(defn to-event [s]
+  (->Transform nil (new-uid) nil true first [s]))
 
 (defn to-signal [event]
-  (->Transform nil (new-uid) nil false first [signal]))
+  (->Transform nil (new-uid) nil false first [event]))
 
 ;
 ; App
@@ -322,7 +325,7 @@
 
 (defn unwatch! [app s]
   (remove-watch app (:uid s))
-  (swap! app kill signal)
+  (swap! app kill s)
   nil)
 
 (defn dispose! [app]
@@ -339,7 +342,7 @@
                                                                                (if-let [s (get-signal app uid)]
                                                                                  (-kill s app)
                                                                                  app)))
-                                                            (push! (:rt app) s v))
+                                                            (push! (:rt app) this v))
                                                           nil))]
                         [(assoc this :value value) (if dispose
                                                      (assoc-in app [:disposables uid] dispose)
@@ -352,7 +355,7 @@
                    app)))
 
 (defn port [f]
-  (->External nil (new-uid) nil false f))
+  (->Port nil (new-uid) nil false f))
 
 (defn event-port [f]
   (as-event (port f)))

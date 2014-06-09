@@ -98,6 +98,12 @@
 (defn tick [f]
   (js/setTimeout f))
 
+(defn listen! [el event cb]
+  (.addEventListener el (name event) cb))
+
+(defn unlisten! [el event cb]
+  (.removeEventListener el (name event) cb))
+
 (defn value [el] ;; TODO: see https://github.com/component/value
   (if (= "checkbox" (-> el .-type .toLowerCase))
     (.-checked el)

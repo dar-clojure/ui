@@ -1,7 +1,12 @@
-(ns dar.ui.dom.test.draggable.main
-  (:require [dar.ui :refer [render!]]
-            [dar.ui.frp :as frp])
-  (:require-macros [dar.ui.dom.elements :refer [DIV]]))
+(ns dar.ui.lib.test.draggable.main
+  (:require [dar.ui :as ui]
+            [dar.ui.frp :as frp]
+            [dar.ui.lib.draggable :as draggable])
+  (:require-macros [dar.ui.html :refer [DIV]]))
+
+(enable-console-print!)
+
+(ui/install-plugin! :draggable draggable/plugin)
 
 (def test
   (DIV nil
@@ -16,4 +21,4 @@
 (defn -main []
   (let [el (.createElement js/document "div")]
     (.appendChild (-> js/document .-body) el)
-    (render! (frp/signal test) el)))
+    (ui/render! (frp/signal test) el)))
