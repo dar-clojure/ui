@@ -1,5 +1,6 @@
 (ns dar.ui.lib.draggable
-  (:require [dar.ui.frp :as frp :include-macros true]
+  (:require [dar.ui :refer [install-plugin!]]
+            [dar.ui.frp :as frp :include-macros true]
             [dar.ui.dom :as dom]
             [dar.ui.lib.event :as event]
             [dar.container :as co])
@@ -106,7 +107,6 @@
 (define :watch-element-pos
   :args [:el :app :pointer-move :el-start-pos :dragging?]
   :fn (fn [el app pointer-move el-start-pos dragging?]
-        (print "watch pos")
         (frp/watch! app
           (frp/bind [move pointer-move
                      start-pos el-start-pos
@@ -121,18 +121,25 @@
   :fn #(frp/new-app))
 
 (define :init
-  :args [:watch-captured-attr :watch-dragging-attr :watch-element-pos]
-  :fn (fn [& _] ))
+  :pre [:watch-captured-attr :watch-dragging-attr :watch-element-pos])
+
+(define :dispose
+  :args [:app]
+  :fn frp/dispose!)
 
 (def draggable (co/make))
 
 (defn plugin [el opts old-opts]
   (when old-opts
     (let [app (dom/data el ::draggable)]
-      (co/stop! app)
+      (co/eval app :dispose)
       (dom/set-data! el ::draggable nil)))
   (when opts
-    (let [app (co/start draggable (merge opts {:el el}))]
+    (let [app (co/start draggable (merge (if (= true opts)
+                                           {}
+                                           opts)
+                                    {:el el}))]
       (dom/set-data! el ::draggable app)
-      (co/eval app :init)
-      (co/eval app :watch-element-pos)))) ; ???
+      (co/eval app :init))))
+
+(install-plugin! :draggable plugin)

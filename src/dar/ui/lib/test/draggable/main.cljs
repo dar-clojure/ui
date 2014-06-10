@@ -1,12 +1,10 @@
 (ns dar.ui.lib.test.draggable.main
   (:require [dar.ui :as ui]
             [dar.ui.frp :as frp]
-            [dar.ui.lib.draggable :as draggable])
+            [dar.ui.lib.draggable])
   (:require-macros [dar.ui.html :refer [DIV]]))
 
 (enable-console-print!)
-
-(ui/install-plugin! :draggable draggable/plugin)
 
 (def test
   (DIV nil
