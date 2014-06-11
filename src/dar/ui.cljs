@@ -1,5 +1,5 @@
 (ns dar.ui
-  (:refer-clojure :exclude [type key])
+  (:refer-clojure :exclude [type key remove])
   (:require [dar.ui.frp :as frp]
             [dar.ui.dom :as dom]
             [clojure.string :as string]))
@@ -8,14 +8,15 @@
   (type [this])
   (key [this])
   (create [this])
-  (update! [this prev el])
-  (remove! [this el]))
+  (update [this prev el])
+  (remove [this el]))
 
-(defn update-element! [new old el]
-  (if (and old (= (type new) (type old)))
-    (update! new old el)
-    (doto (create new)
-      (dom/replace! el))))
+(defn update! [el new old]
+  (cond
+    (not new) (do (remove old el) nil)
+    (not old) (doto (create new) (dom/replace! el))
+    (= (type new) (type old)) (update new old el)
+    :else (doto (create new) (dom/replace! el))))
 
 ;
 ; Collection (children) rendering
@@ -23,11 +24,11 @@
 
 (defn- update-non-sorted-part! [[x & xs :as new] [y & ys :as old] els append!]
   (cond (not x) (when y
-                  (dorun (map remove! old els)))
+                  (dorun (map remove old els)))
         (not y) (dorun (map #(-> % create append!) new))
         (identical? x y) (recur xs ys (next els) append!)
         (= (key x) (key y)) (do
-                              (update-element! x y (first els))
+                              (update! (first els) x y)
                               (recur xs ys (next els) append!))
         :else [new old els]))
 
@@ -40,7 +41,7 @@
                              [y el] (get olds k)
                              new-el (if (identical? x y)
                                       el
-                                      (update-element! x y el))]
+                                      (update! el x y))]
                          (append! new-el)
                          (if y
                            (dissoc olds k)
@@ -48,7 +49,7 @@
                      olds
                      new)]
     (doseq [[_ [old el]] olds]
-      (remove! old el))))
+      (remove old el))))
 
 (defn update-children! [new old parent]
   (let [[new old els] (update-non-sorted-part! new
@@ -108,17 +109,28 @@
 ; Default IElement implementation for IHtml
 ;
 
-(defn update-attributes! [new-attrs old-attrs el]
-  (loop [kvs (seq new-attrs)
-         old-attrs old-attrs]
-    (if-let [[k v] (first kvs)]
-      (let [old (get old-attrs k)]
-        (when-not (or (identical? v old) (update-plugin! k el v old))
-          (dom/set-attribute! el k v))
-        (recur (next kvs) (dissoc old-attrs k)))
-      (doseq [[k v] old-attrs]
-        (when-not (remove-plugin! k el v)
-          (dom/remove-attribute! el k))))))
+(defn diff [f m1 m2]
+  (loop [kvs (seq m1)
+         m2 m2]
+    (if-let [[k v1] (first kvs)]
+      (let [v2 (get m2 k)]
+        (when-not (identical? v1 v2)
+          (f k v1 v2))
+        (recur (next kvs) (dissoc m2 k)))
+      (doseq [[k v2] m2]
+        (f k nil v2)))))
+
+(defn update-attributes! [new old el]
+  (diff (fn [k new old]
+          (if new
+            (or
+              (update-plugin! k el new old)
+              (dom/set-attribute! el k new))
+            (or
+              (remove-plugin! k el old)
+              (dom/remove-attribute! el k))))
+    new
+    old))
 
 (extend-type Element
   IElement
@@ -131,20 +143,20 @@
                      (when-not (add-plugin! k el v)
                        (dom/add-attribute! el k v)))
                    el))
-  (update! [new old el] (do
-                          (let [new-children (children new)
-                                old-children (children old)]
-                            (when-not (identical? new-children old-children)
-                              (update-children! new-children old-children el)))
-                          (let [new-attrs (attributes new)
-                                old-attrs (attributes old)]
-                            (when-not (identical? new-attrs old-attrs)
-                              (update-attributes! new-attrs old-attrs el)))
-                          el))
-  (remove! [this el] (if-let [ms (:soft-remove (attributes this))]
-                       (dom/soft-remove! el (if (number? ms)
-                                              ms 300))
-                       (dom/remove! el))))
+  (update [new old el] (do
+                         (let [new-children (children new)
+                               old-children (children old)]
+                           (when-not (identical? new-children old-children)
+                             (update-children! new-children old-children el)))
+                         (let [new-attrs (attributes new)
+                               old-attrs (attributes old)]
+                           (when-not (identical? new-attrs old-attrs)
+                             (update-attributes! new-attrs old-attrs el)))
+                         el))
+  (remove [this el] (if-let [ms (:soft-remove (attributes this))]
+                      (dom/soft-remove! el (if (number? ms)
+                                             ms 300))
+                      (dom/remove! el))))
 
 ;
 ; Use string as a text node
@@ -155,9 +167,9 @@
   (type [_] :text-node)
   (key [_] nil)
   (create [s] (.createTextNode js/document s))
-  (update! [new old node] (when-not (identical? new old)
-                            (set! (.-textContent node) new)))
-  (remove! [_ node] (dom/remove! node)))
+  (update [new old node] (when-not (identical? new old)
+                           (set! (.-textContent node) new)))
+  (remove [_ node] (dom/remove! node)))
 
 ;
 ; events
@@ -206,7 +218,7 @@
    (let [el (atom el)]
      (frp/watch! app main (fn [new-html old-html]
                             (binding [*app* app]
-                              (swap! el #(update-element! new-html old-html %))))))
+                              (swap! el #(update! % new-html old-html))))))
    app))
 
 ;
@@ -230,9 +242,9 @@
                                                                         (dom/stop! e)
                                                                         (cb app (.-value e))))))
                                 (set! (.-onclick el) (if cb
-                                                         (dom-listener (fn [app e]
-                                                                        (.stopPropagation e)
-                                                                        (cb app (.-checked e)))))))))
+                                                       (dom-listener (fn [app e]
+                                                                       (.stopPropagation e)
+                                                                       (cb app (.-checked el)))))))))
 
 (install-event! :ev-click :click dom/stop!)
 
