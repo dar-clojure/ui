@@ -6,6 +6,10 @@
   ([ctx q] (.querySelector ctx q))
   ([q] (get js/document q)))
 
+(defn by-id
+  ([ctx id] (.getElementById ctx id))
+  ([id] (by-id js/document id)))
+
 (defn element? [el]
   (= 1 (.-nodeType el)))
 
@@ -71,6 +75,9 @@
       (recur (.-parentNode el) parent)
       false)))
 
+(defn in-dom? [el]
+  (child? el js/document))
+
 (defn remove! [el]
   (when-let [parent (.-parentNode el)]
     (.removeChild parent el)))
@@ -81,7 +88,7 @@
   (js/setTimeout #(remove! el) ms))
 
 (defn replace! [new-el old-el]
-  (when-let [parent (.-parentNode old-el)]
+  (when-let [parent (and old-el (.-parentNode old-el))]
     (.replaceChild parent new-el old-el)))
 
 (defn data [el k] ;; TODO: use WeakMap once it will become widely adopted
@@ -97,6 +104,9 @@
 
 (defn tick [f]
   (js/setTimeout f))
+
+(defn raf [f]
+  (js/requestAnimationFrame f))
 
 (defn listen! [el event cb]
   (.addEventListener el (name event) cb))

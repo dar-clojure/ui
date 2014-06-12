@@ -1,4 +1,4 @@
-(ns dar.ui.util.dims)
+(ns dar.ui.lib.dims)
 
 (defprotocol IBox
   (dims [this]))
@@ -31,3 +31,21 @@
 
 (defn within? [box container]
   (every? true? (map within-segment? (dims box) (dims container))))
+
+(defn offset-parent [el]
+  (if-let [p (.-offsetParent el)]
+    (if (= "static" (.-position (js/getComputedStyle p)))
+      (recur p)
+      p)))
+
+(defn origin [[[x] [y]]]
+  [x y])
+
+(defn position [el]
+  (let [[ox oy] (if-let [p (offset-parent el)]
+                  (let [[ox oy] (origin (dims p))]
+                    [(+ ox (.-clientLeft p)) (+ oy (.-clientTop p))])
+                  (origin (dims js/document.documentElement)))
+        [[x1 x2] [y1 y2]] (dims el)]
+    [[(- x1 ox) (- x2 ox)]
+     [(- y1 oy) (- y2 oy)]]))
