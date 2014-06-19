@@ -12,11 +12,13 @@
   (remove [this el]))
 
 (defn update! [el new old]
-  (cond
-    (not new) (do (remove old el) nil)
-    (not old) (doto (create new) (dom/replace! el))
-    (= (type new) (type old)) (update new old el)
-    :else (doto (create new) (dom/replace! el))))
+  (if (identical? new old)
+    el
+    (cond
+      (not new) (do (remove old el) nil)
+      (not old) (doto (create new) (dom/replace! el))
+      (= (type new) (type old)) (update new old el)
+      :else (doto (create new) (dom/replace! el)))))
 
 ;
 ; Collection (children) rendering
@@ -39,9 +41,7 @@
         olds (reduce (fn [olds x]
                        (let [k (key x)
                              [y el] (get olds k)
-                             new-el (if (identical? x y)
-                                      el
-                                      (update! el x y))]
+                             new-el (update! el x y)]
                          (append! new-el)
                          (if y
                            (dissoc olds k)
@@ -137,6 +137,7 @@
   (type [this] (tag this))
   (key [this] (:key (attributes this)))
   (create [this] (let [el (.createElement js/document (name (tag this)))]
+                   (dom/set-data! el :proto this)
                    (doseq [child (children this)]
                      (.appendChild el (create child)))
                    (doseq [[k v] (attributes this)]
@@ -144,6 +145,7 @@
                        (dom/add-attribute! el k v)))
                    el))
   (update [new old el] (do
+                         (dom/set-data! el :proto this)
                          (let [new-children (children new)
                                old-children (children old)]
                            (when-not (identical? new-children old-children)

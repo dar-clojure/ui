@@ -180,8 +180,12 @@
                                 this (assoc this :value new-val :current-signal s)]
                             [this app])))))
 
-(defn switch [input]
-  (->Switch nil (new-uid) nil false input nil))
+(defn switch
+  ([input]
+   (->Switch nil (new-uid) nil false input nil))
+  ([f input & inputs]
+   (let [f (lift f)]
+     (switch (apply f input inputs)))))
 
 (defrecord Foldp [name uid value fn input]
   ISignal

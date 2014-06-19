@@ -1,6 +1,5 @@
 (defproject dar/ui "0.0.1-SNAPSHOT"
   :plugins [[dar/assets-lein "0.0.1-SNAPSHOT"]]
-  :dependencies [[dar/container "0.1.0-SNAPSHOT"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
                                   [dar/assets "0.0.1-SNAPSHOT"]]
                    :source-paths ["examples"]}}
