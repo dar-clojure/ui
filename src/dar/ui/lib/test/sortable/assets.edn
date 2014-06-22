@@ -1,4 +1,0 @@
-{:dependencies ["dar/ui/css/control-group"]
- :css ["sortable.css"]
- :cljs [dar.ui.dom.test.sortable.main]
- :main-ns dar.ui.dom.test.sortable.main}
