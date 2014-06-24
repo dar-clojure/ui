@@ -15,8 +15,8 @@
   (if (identical? new old)
     el
     (cond
-      (not new) (do (remove old el) nil)
-      (not old) (doto (create new) (dom/replace! el))
+      (nil? new) (do (remove old el) nil)
+      (nil? old) (doto (create new) (dom/replace! el))
       (= (type new) (type old)) (update new old el)
       :else (doto (create new) (dom/replace! el)))))
 
@@ -122,13 +122,13 @@
 
 (defn update-attributes! [new old el]
   (diff (fn [k new old]
-          (if new
-            (or
-              (update-plugin! k el new old)
-              (dom/set-attribute! el k new))
+          (if (nil? new)
             (or
               (remove-plugin! k el old)
-              (dom/remove-attribute! el k))))
+              (dom/remove-attribute! el k))
+            (or
+              (update-plugin! k el new old)
+              (dom/set-attribute! el k new))))
     new
     old))
 
@@ -137,7 +137,6 @@
   (type [this] (tag this))
   (key [this] (:key (attributes this)))
   (create [this] (let [el (.createElement js/document (name (tag this)))]
-                   (dom/set-data! el :proto this)
                    (doseq [child (children this)]
                      (.appendChild el (create child)))
                    (doseq [[k v] (attributes this)]
@@ -145,7 +144,6 @@
                        (dom/add-attribute! el k v)))
                    el))
   (update [new old el] (do
-                         (dom/set-data! el :proto this)
                          (let [new-children (children new)
                                old-children (children old)]
                            (when-not (identical? new-children old-children)
@@ -156,8 +154,7 @@
                              (update-attributes! new-attrs old-attrs el)))
                          el))
   (remove [this el] (if-let [ms (:soft-remove (attributes this))]
-                      (dom/soft-remove! el (if (number? ms)
-                                             ms 300))
+                      (dom/soft-remove! el ms)
                       (dom/remove! el))))
 
 ;
@@ -179,36 +176,43 @@
 
 (def ^:dynamic *app* nil)
 
-(defn dom-listener [f]
-  (partial f *app*))
+(defn set-dom-listener! [el event k listener]
+  (let [listeners (dom/data el event)
+        next-listeners (if listener
+                         (assoc listeners k listener)
+                         (dissoc listeners k))]
+    (dom/set-data! el event next-listeners)
+    (when (and (seq next-listeners) (empty? listeners))
+      (let [app *app*]
+        (dom/listen! el event (fn dom-cb [e]
+                                (if-let [listeners (-> (dom/data el event) vals seq)]
+                                  (when-let [pushs (->> listeners
+                                                     (map #(% e))
+                                                     (apply concat)
+                                                     seq)]
+                                    (frp/push! app pushs))
+                                  (dom/unlisten! el event dom-cb))))))))
 
 (defn install-event!
   ([k event] (install-event! k event identity))
   ([k event proc]
-   (let [setter (str "on" (name event))]
-     (install-plugin! k (fn [el f _]
-                          (aset el setter (if f
-                                            (let [cb (dom-listener f)]
-                                              (fn [e]
-                                                (let [v (proc e)]
-                                                  (when-not (nil? v)
-                                                    (cb v))))))))))))
+   (install-plugin! k (fn [el listener _]
+                        (set-dom-listener! el event k #(when-let [e (proc %)]
+                                                         (listener e)))))))
 
 (defn to* [proc]
-  (fn [app val]
-    (let [events (filter (complement nil?) (proc val))]
-      (when (seq events)
-        (frp/push! app events)))))
+  (fn [val]
+    (filter (complement nil?) (proc val))))
 
 (defn to
   ([signal] (to signal nil))
   ([signal proc]
-   (fn [app val]
+   (fn [val]
      (let [val (cond (fn? proc) (proc val)
                      (nil? proc) val
                      :else proc)]
        (when-not (nil? val)
-         (frp/push! app signal val))))))
+         [[signal val]])))))
 
 ;
 ; App rendering
@@ -237,16 +241,16 @@
 (install-plugin! :value (fn [el v _]
                           (dom/set-value! el v)))
 
-(install-plugin! :ev-change (fn [el cb _] ;; TODO: this is not serious
+(install-plugin! :ev-change (fn [el listener _] ;; TODO: this is not serious
                               (if (nil? (.-checked el))
-                                (set! (.-onchange el) (if cb
-                                                        (dom-listener (fn [app e]
-                                                                        (dom/stop! e)
-                                                                        (cb app (.-value e))))))
-                                (set! (.-onclick el) (if cb
-                                                       (dom-listener (fn [app e]
-                                                                       (.stopPropagation e)
-                                                                       (cb app (.-checked el)))))))))
+                                (set-dom-listener! el :change :ev-change (if listener
+                                                                           (fn [e]
+                                                                             (dom/stop! e)
+                                                                             (listener (.-value el)))))
+                                (set-dom-listener! el :click :ev-change (if listener
+                                                                          (fn [e]
+                                                                            (.stopPropagation e)
+                                                                            (listener (.-checked el))))))))
 
 (install-event! :ev-click :click dom/stop!)
 

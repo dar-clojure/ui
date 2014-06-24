@@ -97,6 +97,9 @@
 (defn set-data! [el k v]
   (aset el (str k) v))
 
+(defn swap-data! [el k f]
+  (set-data! el k (f (data el k))))
+
 (defn stop! [ev]
   (.preventDefault ev)
   (.stopPropagation ev)
