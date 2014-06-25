@@ -201,8 +201,14 @@
                                 this (assoc this :value new-val)]
                             [this app])))))
 
-(defn foldp [f init s]
-  (->Foldp nil (new-uid) init f s))
+(defn foldp
+  ([f init s]
+   (->Foldp nil (new-uid) init f s))
+  ([f init x & xs]
+   (foldp (fn [prev xs]
+            (apply f prev xs))
+     init
+     (join (cons x xs)))))
 
 (defrecord MapSwitch [name uid value input m sm sf reduce-fn init post]
   ISignal

@@ -1,0 +1,3 @@
+{:css ["autocomplete.css"]
+ :cljs [autocomplete.main]
+ :main-ns autocomplete.main}

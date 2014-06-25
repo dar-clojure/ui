@@ -11,3 +11,6 @@
         signals (map second bindings)]
     `(->Transform nil (new-uid) nil false #(apply (fn ~@name [~@params] ~@body) %) [~@signals])))
 
+(defmacro event-bind [& args]
+  `(as-event (bind ~@args)))
+

@@ -75,14 +75,16 @@
   (tag [this])
   (attributes [this])
   (set-attributes [this attr])
-  (children [this]))
+  (children [this])
+  (set-children [this children]))
 
 (defrecord Element [tag attrs children]
   IHtml
   (tag [_] tag)
   (attributes [_] attrs)
   (set-attributes [this new-attrs] (->Element tag new-attrs children))
-  (children [_] children))
+  (children [_] children)
+  (set-children [this ch] (->Element tag attrs ch)))
 
 ;
 ; Plugins
@@ -258,10 +260,24 @@
 
 (install-event! :ev-dblclick :dblclick dom/stop!)
 
+(install-event! :ev-mouseover :mouseover)
+
+(install-event! :ev-keypress :keypress)
+
 
 ;
 ; Utils
 ;
+
+(defn update-attributes [el f]
+  (set-attributes el (f (attributes el))))
+
+(defn update-attribute [el k f]
+  (update-attributes el (fn [attrs]
+                          (let [v (f (get attrs k))]
+                            (if (nil? v)
+                              (dissoc attrs k)
+                              (assoc attrs k v))))))
 
 (defn classes
   ([m]
@@ -270,3 +286,16 @@
        ret)))
   ([class on?] (if on? (name class)))
   ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))
+
+(defn add-class
+  ([el class]
+   (if class
+     (update-attribute el :class #(string/join " " [% (name class)]))
+     el)))
+
+(defn listen [el event listener]
+  (update-attribute el event (fn [current]
+                               (if current
+                                 (fn [e]
+                                   (concat (current e) (listener e)))
+                                 listener))))
