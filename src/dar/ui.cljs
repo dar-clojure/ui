@@ -182,7 +182,7 @@
                          (assoc listeners k listener)
                          (dissoc listeners k))]
     (dom/set-data! el event next-listeners)
-    (when (and (seq next-listeners) (empty? listeners))
+    (when (and (seq next-listeners) (nil? listeners))
       (let [app *app*]
         (dom/listen! el event (fn dom-cb [e]
                                 (if-let [listeners (-> (dom/data el event) vals seq)]
@@ -191,7 +191,9 @@
                                                      (apply concat)
                                                      seq)]
                                     (frp/push! app pushs))
-                                  (dom/unlisten! el event dom-cb))))))))
+                                  (do
+                                    (dom/unlisten! el event dom-cb)
+                                    (dom/set-data! el event nil)))))))))
 
 (defn install-event!
   ([k event] (install-event! k event identity))
