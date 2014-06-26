@@ -282,6 +282,22 @@
 (defn pullonly [s]
   (->PullOnly nil (new-uid) (:value s) (:event? s) s))
 
+(defrecord Pipe [name uid value event? src target]
+  ISignal
+  (-touch [this app] (touch-listeners app this))
+
+  (-kill [this app] (kill app src this))
+
+  (-update [this app] (let [[new-val app] (pull app src this)
+                            app (touch app target)
+                            this (assoc this :value new-val)]
+                        [this app])))
+
+(defn pipe [src target]
+  (if target
+    (->Pipe nil (new-uid) (:value src) (:event? src) src target)
+    src))
+
 (defn automaton [initial-state commands commands-signal]
   (foldp (fn [state [cmd & args]]
            (apply (commands cmd) state args))
