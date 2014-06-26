@@ -30,10 +30,13 @@
 (defn add-focused-class [el]
   (ui/add-class el :is-focused))
 
-(defn focusable-items
-  ([el focus commands] (focusable-items el focus commands add-focused-class))
+(defn select
+  ([el focus commands] (select el focus commands add-focused-class))
   ([el focus commands highlight]
-   (let [len (frp/<- (comp count ui/children) el)
+   (let [commands (if commands
+                    (frp/<- commands)
+                    (frp/event))
+         len (frp/<- (comp count ui/children) el)
          focus (frp/pipe
                  (frp/foldp (fn [idx len [cmd p]]
                               (case cmd
@@ -63,7 +66,7 @@
 (enable-console-print!)
 
 (def main
-  (focusable-items
+  (select
     (frp/signal (UL nil
                   (LI nil "first")
                   (LI nil "second")

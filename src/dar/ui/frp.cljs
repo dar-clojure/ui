@@ -156,8 +156,10 @@
   ([xs] (->Transform nil (new-uid) nil false identity xs))
   ([x & xs] (join (cons x xs))))
 
-(defn <- [f input]
-  (->Transform nil (new-uid) nil false #(-> % first f) [input]))
+(defn <-
+  ([x] (<- identity x))
+  ([f & xs]
+   (->Transform nil (new-uid) nil false #(-> % first f) xs)))
 
 (def nil-signal (signal))
 
