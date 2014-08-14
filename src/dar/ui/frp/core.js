@@ -12,9 +12,15 @@ function extend(Klass, Proto) {
   Klass.prototype = Object.create(Proto.prototype)
 }
 
+function comparePriorities(a, b) {
+  return b.priority - a.priority
+}
+
+exports.App = App
+
 function App() {
   this.signals = {}
-  this.queue = new Heap
+  this.queue = new Heap(comparePriorities)
   this.topPriority = Number.MIN_VALUE
   this.events = []
 }
@@ -22,6 +28,14 @@ function App() {
 App.prototype.get = function(signal) {
   var s = this.signals[signal.uid]
   return s && s.value
+}
+
+App.prototype.watch = function(signal, cb) {
+  var watch = new Transform(function(prev, args) {
+    cb(prev, args[0])
+  }, [signal])
+  this.state(watch)
+  return watch
 }
 
 App.prototype.push = function(signal, v) {
@@ -56,6 +70,7 @@ App.prototype.state = function(signal) {
 App.prototype.recompute = function() {
   var s
   while(s = this.queue.pop()) {
+    if (s.killed) continue
     this.topPriority = s.priority
     this.recomputeState(s)
   }
@@ -99,22 +114,40 @@ App.prototype.lowerPriority = function(s, priority) {
   return touchedDirty
 }
 
-function Signal() {
+App.prototype.kill = function(s, listener) {
+  if (listener) s.removeListener(listener)
+  if (s.hasListeners()) return
+  delete this.signals[s.uid]
+  s.killed = true
+  s.onkill()
+}
+
+exports.Signal = Signal
+
+function Signal(val) {
   this.uid = uid()
+  this.value = val
+  this.event = false
 }
 
 Signal.prototype.createState = function(app) {
-  return new State(this.uid, app)
+  return new State(this, app)
 }
 
-function State(uid, app) {
-  this.uid = uid
+Signal.prototype.asEvent = function() {
+  this.event = true
+  return this
+}
+
+function State(spec, app) {
+  this.uid = spec.uid
+  this.value = spec.value
+  this.event = spec.event
   this.app = app
-  this.event = false
   this.priority = 0
   this.listeners = {}
-  this.value = null
   this.dirty = false
+  this.killed = false
 }
 
 State.prototype.addListener = function(s) {
@@ -132,6 +165,8 @@ State.prototype.hasListeners = function() {
   return false
 }
 
+State.prototype.onkill = function() {}
+
 State.prototype.markListenersDirty = function() {
   var app = this.app
   for(var key in this.listeners) {
@@ -139,20 +174,28 @@ State.prototype.markListenersDirty = function() {
   }
 }
 
+exports.Transform = Transform
+
 function Transform(fn, inputs) {
   this.uid = uid()
   this.fn = fn
   this.inputs = inputs
+  this.event = false
+}
+
+Transform.prototype.asEvent = function() {
+  this.event = true
+  return this
 }
 
 Transform.prototype.createState = function(app) {
-  return new ATransform(this.uid, app, this.fn, this.inputs)
+  return new ATransform(this, app)
 }
 
-function ATransform(uid, app, fn, inputs) {
-  State.call(this, uid, app)
-  this.fn = fn
-  this.setInputs(inputs)
+function ATransform(spec, app {
+  State.call(this, spec, app)
+  this.fn = spec.fn
+  this.setInputs(spec.inputs)
 }
 
 extend(ATransform, State)
@@ -174,37 +217,69 @@ ATransform.prototype.recompute = function() {
   this.value = this.fn(this.value, args)
 }
 
+ATransform.prototype.onkill = function() {
+  for(var i = 0; i < this.inputs.length; i++) {
+    this.app.kill(this.inputs[i], this)
+  }
+}
+
+exports.mergeTransform = function(_, vals) {
+  for(var i = 0; i < vals.length; i++) {
+    if (vals[i] != null) return vals[i]
+  }
+}
+
+exports.Switch = Switch
+
 function Switch(input) {
   this.uid = uid()
   this.input = input
+  this.event = false
+}
+
+Switch.prototype.asEvent = function() {
+  this.event = true
+  return this
 }
 
 Switch.prototype.createState = function(app) {
-  return new ASwitch(this.uid, app, this.input)
+  return new ASwitch(this, app)
 }
 
-function ASwitch(uid, app, input) {
-  State.call(this, uid, app)
-  this.input = app.state(input)
+function ASwitch(spec, app) {
+  State.call(this, spec, app)
+  this.input = app.state(spec.input)
+  this.priority = this.input.priority - 1
 }
 
 extend(ASwitch, State)
 
 ASwitch.prototype.recompute = function() {
   var signal = this.input.value
-  if (!signal) return this.value = null
-  var s = this.app.state(signal)
-  if (this.app.requeue(this, s.priority)) return
-  this.value = s.value
+    , s = signal && this.app.state(signal)
+
+  if (signal !== this.signal) {
+    if (this.signal) this.app.kill(this.signal, this)
+    this.signal = signal
+    if (s) {
+      s.addListener(this)
+      if (this.app.requeue(this, s.priority)) return
+    }
+  }
+
+  this.value = s && s.value
 }
 
-exports.App = App
-exports.Signal = Signal
-exports.Transform = Transform
-exports.Switch = Switch
+ASwitch.prototype.onkill = function() {
+  var s = this.signal && this.app.state(this.signal)
+  if (s) this.app.kill(s, this)
+  this.app.kill(this.input, this)
+}
+
+exports.Heap = Heap
 
 function Heap(compare){
-  this.compare = compare || function(a, b){ return a - b }
+  this.compare = compare
   this.arr = []
 }
 
@@ -212,59 +287,79 @@ Heap.prototype.peek = function(){
   return this.arr[0]
 }
 
+Heap.prototype.size = function() {
+  return this.arr.length
+}
+
 Heap.prototype.push = function(v){
   var a = this.arr
     , compare = this.compare
     , pos = a.length
     , parent
-    , x
 
   a.push(v)
 
   while(pos > 0) {
     parent = (pos - 1) >>> 1
-    if (compare(a[pos], a[parent]) >= 0) return
-    x = a[parent]
-    a[parent] = a[pos]
-    a[pos] = x
+    if (compare(a[parent], v) < 0) break
+    a[pos] = a[parent]
     pos = parent
   }
+
+  a[pos] = v
 }
 
 Heap.prototype.pop = function(){
   var a = this.arr
     , top = a[0]
-    , last = a.pop()
+    , poped = a.pop()
 
   if (a.length > 0) {
-    a[0] = last
-
-    var pos = 0
-      , lastIdx = a.length - 1
-      , compare = this.compare
-      , left
-      , right
-      , min
-      , x
-
-    while(1) {
-      left = (pos << 1) + 1
-      right = left + 1
-      min = pos
-      if (left <= last && compare(a[left], a[min]) < 0) min = left
-      if (right <= last && compare(a[right], a[min]) < 0) min = right
-      if (min == pos) break
-      x = a[min]
-      a[min] = a[pos]
-      a[pos] = x
-      pos = min
-    }
+    siftDown(a, poped, 0, a.length - 1, this.compare)
   }
 
   return top
 }
 
+function siftDown(a, v, pos, last, compare) {
+  var left
+    , right
+    , next
+
+  while(true) {
+    left = (pos << 1) + 1
+    right = left + 1
+
+    if (right <= last) {
+      next = compare(a[right], a[left]) < 0
+        ? compare(a[right], v) < 0 ? right : pos
+        : compare(a[left], v) < 0 ? left : pos
+    } else if (left == last) {
+      next = compare(a[left], v) < 0 ? left : pos
+    } else {
+      next = pos
+    }
+
+    if (next == pos) break
+    a[pos] = a[next]
+    pos = next
+  }
+
+  a[pos] = v
+}
+
 Heap.prototype.resort = function() {
+  var a = this.arr
+    , compare = this.compare
+    , last = a.length - 1
+    , i = (last - 1) >>> 1
+
+  if (a.length == 0) return
+
+  while(i >= 0) {
+    siftDown(a, a[i], i, last, compare)
+    i--
+  }
 }
 
 Heap.prototype.init = function(arr) {

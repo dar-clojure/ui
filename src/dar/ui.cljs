@@ -192,7 +192,7 @@
                                                      (map #(% e))
                                                      (apply concat)
                                                      seq)]
-                                    (frp/push! app pushs))
+                                    (apply frp/push! app (first pushs))) ; just a single push, for now
                                   (do
                                     (dom/unlisten! el event dom-cb)
                                     (dom/set-data! el event nil)))))))))
