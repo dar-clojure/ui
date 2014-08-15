@@ -21,7 +21,7 @@ exports.App = App
 function App() {
   this.signals = {}
   this.queue = new Heap(comparePriorities)
-  this.topPriority = Number.MIN_VALUE
+  this.topPriority = Number.NEGATIVE_INFINITY
   this.events = []
 }
 
@@ -32,7 +32,8 @@ App.prototype.get = function(signal) {
 
 App.prototype.watch = function(signal, cb) {
   var watch = new Transform(function(prev, args) {
-    cb(prev, args[0])
+    cb(args[0], prev)
+    return args[0]
   }, [signal])
   this.state(watch)
   return watch
@@ -42,9 +43,9 @@ App.prototype.push = function(signal, v) {
   var s = this.signals[signal.uid]
   if (!s) return
   if (s.value === v) return
+  if (s.event) this.events.push(s)
   s.value = v
   s.markListenersDirty()
-  this.recompute()
 }
 
 App.prototype.markDirty = function(s) {
@@ -74,7 +75,7 @@ App.prototype.recompute = function() {
     this.topPriority = s.priority
     this.recomputeState(s)
   }
-  this.topPriority = Number.MIN_VALUE
+  this.topPriority = Number.NEGATIVE_INFINITY
   this.clearEvents()
 }
 
@@ -167,10 +168,12 @@ State.prototype.hasListeners = function() {
 
 State.prototype.onkill = function() {}
 
+State.prototype.recompute = function() {}
+
 State.prototype.markListenersDirty = function() {
   var app = this.app
   for(var key in this.listeners) {
-    app.markDirty(app.signals[keys])
+    app.markDirty(app.signals[key])
   }
 }
 
@@ -192,7 +195,7 @@ Transform.prototype.createState = function(app) {
   return new ATransform(this, app)
 }
 
-function ATransform(spec, app {
+function ATransform(spec, app) {
   State.call(this, spec, app)
   this.fn = spec.fn
   this.setInputs(spec.inputs)
