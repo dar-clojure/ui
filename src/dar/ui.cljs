@@ -68,25 +68,6 @@
             (update-sorted-part! (reverse new) old els #(.insertBefore parent % ref))))))))
 
 ;
-; HTML Elements
-;
-
-(defprotocol IHtml
-  (tag [this])
-  (attributes [this])
-  (set-attributes [this attr])
-  (children [this])
-  (set-children [this children]))
-
-(defrecord Element [tag attrs children]
-  IHtml
-  (tag [_] tag)
-  (attributes [_] attrs)
-  (set-attributes [this new-attrs] (->Element tag new-attrs children))
-  (children [_] children)
-  (set-children [this ch] (->Element tag attrs ch)))
-
-;
 ; Plugins
 ;
 
@@ -107,21 +88,6 @@
 (defn remove-plugin! [name el arg]
   (update-plugin! name el nil arg))
 
-;
-; Default IElement implementation for IHtml
-;
-
-(defn diff [f m1 m2]
-  (loop [kvs (seq m1)
-         m2 m2]
-    (if-let [[k v1] (first kvs)]
-      (let [v2 (get m2 k)]
-        (when-not (identical? v1 v2)
-          (f k v1 v2))
-        (recur (next kvs) (dissoc m2 k)))
-      (doseq [[k v2] m2]
-        (f k nil v2)))))
-
 (defn update-attributes! [new old el]
   (diff (fn [k new old]
           (if (nil? new)
@@ -134,14 +100,44 @@
     new
     old))
 
-(extend-type Element
+(defn diff [f m1 m2]
+  (loop [kvs (seq m1)
+         m2 m2]
+    (if-let [[k v1] (first kvs)]
+      (let [v2 (get m2 k)]
+        (when-not (identical? v1 v2)
+          (f k v1 v2))
+        (recur (next kvs) (dissoc m2 k)))
+      (doseq [[k v2] m2]
+        (f k nil v2)))))
+
+
+;
+; HTML Element
+;
+
+(defprotocol IHtml
+  (tag [this])
+  (attributes [this])
+  (set-attributes [this attr])
+  (children [this])
+  (set-children [this children]))
+
+(deftype HtmlElement [tag attrs ch]
+  IHtml
+  (tag [this] tag)
+  (attributes [this] attrs)
+  (set-attributes [this m] (HtmlElement. tag m child))
+  (children [this] ch)
+  (set-children [this col] (HtmlElement. tag attrs col))
+
   IElement
-  (type [this] (tag this))
-  (key [this] (:key (attributes this)))
-  (create [this] (let [el (.createElement js/document (name (tag this)))]
+  (type [this] tag)
+  (key [this] (:key attrs))
+  (create [this] (let [el (.createElement js/document (name tag))]
                    (doseq [child (children this)]
                      (.appendChild el (create child)))
-                   (doseq [[k v] (attributes this)]
+                   (doseq [[k v] attrs]
                      (when-not (add-plugin! k el v)
                        (dom/add-attribute! el k v)))
                    el))
@@ -158,6 +154,7 @@
   (remove [this el] (if-let [ms (:soft-remove (attributes this))]
                       (dom/soft-remove! el ms)
                       (dom/remove! el))))
+
 
 ;
 ; Use string as a text node

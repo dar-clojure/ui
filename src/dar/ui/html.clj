@@ -17,7 +17,7 @@
                    (ffirst children)
                    `(list ~@children))
         tag (keyword (name tag))]
-    `(dar.ui/->Element ~tag ~attrs ~children)))
+    `(dar.ui/HtmlElement. ~tag ~attrs ~children)))
 
 (defn- gen-element-macro [tag]
   `(defmacro ~(symbol (string/upper-case tag)) [& args#]

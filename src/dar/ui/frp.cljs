@@ -93,5 +93,5 @@
    (.recompute app))
   ([app pushs]
    (doseq [[signal v] pushs]
-     (.push app signal val))
+     (.push app signal v))
    (.recompute app)))
