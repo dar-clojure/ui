@@ -83,10 +83,9 @@ App.prototype.recomputeState = function(s) {
   var prev = s.value
   s.dirty = false
   s.recompute()
-  if (!s.dirty && prev !== s.value) {
-    s.markListenersDirty()
-    if (s.event) this.events.push(s)
-  }
+  if (s.dirty || prev === s.value) return
+  s.markListenersDirty()
+  if (s.event) this.events.push(s)
 }
 
 App.prototype.clearEvents = function() {
@@ -135,11 +134,6 @@ Signal.prototype.createState = function(app) {
   return new State(this, app)
 }
 
-Signal.prototype.asEvent = function() {
-  this.event = true
-  return this
-}
-
 function State(spec, app) {
   this.uid = spec.uid
   this.value = spec.value
@@ -184,11 +178,6 @@ function Transform(fn, inputs) {
   this.fn = fn
   this.inputs = inputs
   this.event = false
-}
-
-Transform.prototype.asEvent = function() {
-  this.event = true
-  return this
 }
 
 Transform.prototype.createState = function(app) {
@@ -240,11 +229,6 @@ function Switch(input) {
   this.event = false
 }
 
-Switch.prototype.asEvent = function() {
-  this.event = true
-  return this
-}
-
 Switch.prototype.createState = function(app) {
   return new ASwitch(this, app)
 }
@@ -260,14 +244,13 @@ extend(ASwitch, State)
 ASwitch.prototype.recompute = function() {
   var signal = this.input.value
     , s = signal && this.app.state(signal)
+    , old = this.signal
 
-  if (signal !== this.signal) {
-    if (this.signal) this.app.kill(this.signal, this)
+  if (signal !== old) {
+    if (s) s.addListener(this)
+    if (old) this.app.kill(old, this)
     this.signal = signal
-    if (s) {
-      s.addListener(this)
-      if (this.app.requeue(this, s.priority)) return
-    }
+    if (s && this.app.requeue(this, s.priority)) return
   }
 
   this.value = s && s.value
