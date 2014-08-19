@@ -4,7 +4,7 @@ goog.provide('dar.ui.frp.core')
 
 var uidCounter = 0
 
-function uid() {
+function newUid() {
   return uidCounter++
 }
 
@@ -58,12 +58,17 @@ App.prototype.state = function(signal) {
   var s = this.signals[signal.uid]
   if (!s) {
     s = signal.createState(this)
-    this.signals[signal.uid] = s
-    if (this.topPriority > s.priority) {
-      this.markDirty(s)
-    } else {
-      this.recomputeState(s)
-    }
+    this.initState(s)
+  }
+  return s
+}
+
+App.prototype.initState = function(s) {
+  this.signals[s.uid] = s
+  if (this.topPriority > s.priority) {
+    this.markDirty(s)
+  } else {
+    this.recomputeState(s)
   }
   return s
 }
@@ -116,7 +121,7 @@ App.prototype.lowerPriority = function(s, priority) {
 
 App.prototype.kill = function(s, listener) {
   if (listener) s.removeListener(listener)
-  if (s.hasListeners()) return
+  if (s.hold || s.hasListeners()) return
   delete this.signals[s.uid]
   s.killed = true
   s.onkill()
@@ -125,7 +130,7 @@ App.prototype.kill = function(s, listener) {
 exports.Signal = Signal
 
 function Signal(val) {
-  this.uid = uid()
+  this.uid = newUid()
   this.value = val
   this.event = false
 }
@@ -139,6 +144,7 @@ function State(spec, app) {
   this.value = spec.value
   this.event = spec.event
   this.app = app
+  this.spec = spec
   this.priority = 0
   this.listeners = {}
   this.dirty = false
@@ -174,7 +180,7 @@ State.prototype.markListenersDirty = function() {
 exports.Transform = Transform
 
 function Transform(fn, inputs) {
-  this.uid = uid()
+  this.uid = newUid()
   this.fn = fn
   this.inputs = inputs
   this.event = false
@@ -224,7 +230,7 @@ exports.mergeTransform = function(_, vals) {
 exports.Switch = Switch
 
 function Switch(input) {
-  this.uid = uid()
+  this.uid = newUid()
   this.input = input
   this.event = false
 }
@@ -260,6 +266,102 @@ ASwitch.prototype.onkill = function() {
   var s = this.signal && this.app.state(this.signal)
   if (s) this.app.kill(s, this)
   this.app.kill(this.input, this)
+}
+
+exports.MapSwitch = MapSwitch
+
+function MapSwitch(input, sf) {
+  this.uid = newUid()
+  this.input = input
+  this.sf = sf
+}
+
+MapSwitch.prototype.createState = function(app) {
+  return new AMapSwitch(this, app)
+}
+
+exports.AMapSwitch = AMapSwitch
+
+function AMapSwitch(spec, app) {
+  State.call(this, spec, app)
+  this.sf = spec.sf
+  this.input = app.state(spec.input)
+  this.input.addListener(this)
+  this.priority = this.input.priority - 1
+}
+
+extend(AMapSwitch, State)
+
+AMapSwitch.prototype.setJoiner = function(joiner) {
+  this.joiner = joiner
+  this.joiner.priority = this.priority - 3
+}
+
+AMapSwitch.prototype.recompute = function() {
+  throw new Error('This should be implemented in Clojure')
+}
+
+AMapSwitch.prototype.onkill = function() {
+  this.app.kill(this.input, this)
+}
+
+exports.Joiner = Joiner
+
+function Joiner(router, post) {
+  this.uid = newUid()
+  this.router = router
+  this.post = post
+}
+
+Joiner.prototype.createState = function(app) {
+  return new AJoiner(this, app)
+}
+
+function AJoiner(spec, app) {
+  State.call(this, spec, app)
+  this.post = spec.post
+  this.signals = {}
+  this.router = spec.router.createState(app)
+  this.router.setJoiner(this)
+  this.router.hold = true
+  this.app.initState(this.router)
+  this.upstreamPriority = this.priority
+}
+
+extend(AJoiner, State)
+
+AJoiner.prototype.add = function(k, signal) {
+  var s = this.app.state(signal)
+  s.addListener(this)
+  this.upstreamPriority = Math.min(this.upstreamPriority, s.priority)
+  this.signals[s.uid] = [k, s]
+}
+
+AJoiner.prototype.remove = function(signal) {
+  var uid = signal.uid
+  var s = this.signals[uid][1]
+  this.app.kill(s, this)
+  delete this.signals[uid]
+}
+
+AJoiner.prototype.onkill = function() {
+  for(var key in this.signals) {
+    this.app.kill(this.signals[key][1], this)
+  }
+  this.router.hold = false
+  this.app.kill(this.router)
+}
+
+AJoiner.prototype.recompute = function() {
+  if (this.app.requeue(this, this.upstreamPriority)) return
+  var vals = []
+  for(var key in this.signals) {
+    var x = this.signals[key]
+    var k = x[0]
+    var v = x[1].value
+    vals.push(cljs.core.vector(k, v))
+  }
+  this.value = this.post(vals)
 }
 
 exports.Heap = Heap
