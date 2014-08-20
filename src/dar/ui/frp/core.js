@@ -170,7 +170,7 @@ State.prototype.lowerListenersPriority = function(priority) {
 }
 
 State.prototype.lowerPriority = function(priority) {
-  if (this.priority < priority) return false
+  if (this.priority <= priority) return false
   if (this.lowering) throw new Error('Cycle in the signal graph')
   this.lowering = true
   this.priority = priority
@@ -262,18 +262,59 @@ ASwitch.prototype.recompute = function() {
     , oldState = this.signalState
 
   if (signal !== old) {
-    this.signal = signal
-    this.signalState = signal && this.dependOn(signal)
+    this.plugNewSignal(signal)
     if (oldState) oldState.kill(this)
-    if (this.requeue()) return
   }
 
-  this.value = this.signalState && this.signalState.value
+  if (signal) this.requeue()
+}
+
+ASwitch.prototype.plugNewSignal = function(signal) {
+  if (!signal) return this.signal = this.signalState = this.value = null
+  var s = this.signalState = this.app.state(signal)
+  s.addListener(this)
+  this.downstreamPriority = Math.min(this.priority - 1, s.priority - 1)
+}
+
+ASwitch.prototype.requeue = function() {
+  this.dummy = new DummySwitch(this)
+  this.dummy.markDirty()
+}
+
+ASwitch.prototype.lowerPriority = function(priority) {
+  if (this.priority < this.input.priority)
+    return this.lowerDownstream(priority)
+  this.priority = priority
+  var dirty = this.lowerDownstream(priority - 1)
+  return this.dirty || dirty
+}
+
+ASwitch.prototype.lowerDownstream = function(priority) {
+  if (this.downstreamPriority <= priority) return false
+  this.downstreamPriority = priority
+  var touchedDirty = this.lowerListenersPriority(priority - 1)
+  if (this.dummy) this.dummy.priority = priority
+  return !!this.dummy || touchedDirty
 }
 
 ASwitch.prototype.onkill = function() {
   if (this.signalState) this.signalState.kill(this)
   this.input.kill(this)
+}
+
+function DummySwitch(sw) {
+  this.app = sw.app
+  this.listeners = sw.listeners
+  this.priority = sw.downstreamPriority
+  this.value = sw.value
+  this.sw = sw
+}
+
+extend(DummySwitch, State)
+
+DummySwitch.prototype.recompute = function() {
+  this.sw.dummy = null
+  this.value = this.sw.value = this.sw.signalState.value
 }
 
 exports.SignalsMap = SignalsMap
