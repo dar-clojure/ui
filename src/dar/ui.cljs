@@ -283,18 +283,24 @@
                               (dissoc attrs k)
                               (assoc attrs k v))))))
 
-(defn classes
-  ([m]
-   (let [ret (string/join " " (->> m (filter second) (map #(-> % first name))))]
-     (if (seq ret)
-       ret)))
-  ([class on?] (if on? (name class)))
-  ([class on? & rest] (classes (cons [class on?] (partition 2 rest)))))
+(defn classes [m]
+  (loop [ret nil
+         m (seq m)]
+    (if-let [[k i?] (first m)]
+      (if i?
+        (if (nil? ret)
+          (recur (name k) (next m))
+          (recur (js* "~{} + ~{} + ~{}" ret " " (name k)) (next m)))
+        (recur ret (next m)))
+      ret)))
 
 (defn add-class
   ([el class]
    (if class
-     (update-attribute el :class #(string/join " " [% (name class)]))
+     (update-attribute el :class (fn [c]
+                                   (if (seq c)
+                                     (str c " " (name class))
+                                     (name class))))
      el)))
 
 (defn listen [el event listener]

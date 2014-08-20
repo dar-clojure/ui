@@ -54,9 +54,11 @@
                e? editing?
                mode mode]
       (LI {:key id
-           :class (classes :completed completed? :editing e?
-                    :hidden (or (and completed? (= mode :active))
-                              (and (not completed?) (= mode :completed))))}
+           :class (classes {:completed completed?
+                            :editing e?
+                            :hidden (or
+                                      (and completed? (= mode :active))
+                                      (and (not completed?) (= mode :completed)))})}
         (DIV {:class "view"}
           (INPUT {:class "toggle" :type "checkbox"
                   :value completed?
@@ -92,7 +94,7 @@
                                       [commands [:new text]])
                                     [enter-new ["" true]]]))}))
 
-        (SECTION {:id "main" :class (classes :hidden (= all 0))}
+        (SECTION {:id "main" :class (classes {:hidden (= all 0)})}
           (INPUT {:id "toggle-all" :type "checkbox"
                   :value all-completed?
                   :ev-change (to commands (fn [c?]
@@ -100,7 +102,7 @@
           (UL {:id "todo-list"}
             [items]))
 
-        (FOOTER {:id "footer" :class (classes :hidden (= all 0))}
+        (FOOTER {:id "footer" :class (classes {:hidden (= all 0)})}
           (SPAN {:id "todo-count"}
             (STRONG nil (str left))
             (if (= left 1)
@@ -111,14 +113,14 @@
             (filter-link mode :active "Active")
             (filter-link mode :completed "Completed"))
           (BUTTON {:id "clear-completed"
-                   :class (classes :hidden (= 0 completed))
+                   :class (classes {:hidden (= 0 completed)})
                    :ev-click (to commands [:clear-completed])}
             (str "Clear completed (" completed ")")))))))
 
 (defn filter-link [m type text]
   (LI nil
     (A {:href "#"
-        :class (classes :selected (= m type))
+        :class (classes {:selected (= m type)})
         :ev-click (to mode type)}
       text)))
 
