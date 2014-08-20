@@ -1,3 +1,0 @@
-{:css ["demo.css"]
- :cljs [dar.ui.lib.test.satellite.main]
- :main-ns dar.ui.lib.test.satellite.main}
