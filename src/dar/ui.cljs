@@ -160,13 +160,20 @@
 ; Use string as a text node
 ;
 
-(extend-type string
-  IElement
+(extend-protocol IElement
+  string
   (type [_] :text-node)
   (key [_] nil)
   (create [s] (.createTextNode js/document s))
   (update [new old node] (when-not (identical? new old)
                            (set! (.-textContent node) new)))
+  (remove [_ node] (dom/remove! node))
+
+  nil
+  (type [_] :text-node)
+  (key [_] nil)
+  (create [_] (.createTextNode js/document ""))
+  (update [_ _ _])
   (remove [_ node] (dom/remove! node)))
 
 ;
