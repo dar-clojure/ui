@@ -149,15 +149,12 @@ State.prototype.markListenersDirty = function() {
 State.prototype.dependOn = function(signal) {
   var s = this.app.state(signal)
   s.addListener(this)
-  this.priority = Math.min(this.priority, s.priority - 1)
+  this.priority = Math.min(this.priority, s.getDownstreamPriority())
   return s
 }
 
-State.prototype.requeue = function() {
-  if (this.priority == this.app.topPriority) return false
-  if (this.lowerListenersPriority(this.priority - 1)) this.app.queue.resort()
-  this.markDirty()
-  return true
+State.prototype.getDownstreamPriority = function() {
+  return this.priority - 1
 }
 
 State.prototype.lowerListenersPriority = function(priority) {
@@ -266,19 +263,19 @@ ASwitch.prototype.recompute = function() {
     if (oldState) oldState.kill(this)
   }
 
-  if (signal) this.requeue()
+  if (signal) {
+    this.dummy = new DummySwitch(this)
+    this.dummy.markDirty()
+  }
 }
 
 ASwitch.prototype.plugNewSignal = function(signal) {
   if (!signal) return this.signal = this.signalState = this.value = null
+  this.signal = signal
   var s = this.signalState = this.app.state(signal)
   s.addListener(this)
-  this.downstreamPriority = Math.min(this.priority - 1, s.priority - 1)
-}
-
-ASwitch.prototype.requeue = function() {
-  this.dummy = new DummySwitch(this)
-  this.dummy.markDirty()
+  var dp = Math.min(this.priority - 1, s.getDownstreamPriority())
+  if (this.lowerDownstream(dp)) this.app.queue.resort()
 }
 
 ASwitch.prototype.lowerPriority = function(priority) {
@@ -297,14 +294,18 @@ ASwitch.prototype.lowerDownstream = function(priority) {
   return !!this.dummy || touchedDirty
 }
 
+ASwitch.prototype.getDownstreamPriority = function() {
+  return this.downstreamPriority
+}
+
 ASwitch.prototype.onkill = function() {
+  if (this.dummy) this.dummy.killed = true
   if (this.signalState) this.signalState.kill(this)
   this.input.kill(this)
 }
 
 function DummySwitch(sw) {
   this.app = sw.app
-  this.listeners = sw.listeners
   this.priority = sw.downstreamPriority
   this.value = sw.value
   this.sw = sw
@@ -315,6 +316,12 @@ extend(DummySwitch, State)
 DummySwitch.prototype.recompute = function() {
   this.sw.dummy = null
   this.value = this.sw.value = this.sw.signalState.value
+}
+
+DummySwitch.prototype.markListenersDirty = function() {
+  for(var key in this.sw.listeners) {
+    this.sw.listeners[key].markDirty()
+  }
 }
 
 exports.SignalsMap = SignalsMap
