@@ -48,27 +48,16 @@ App.prototype.push = function(signal, v) {
   s.markListenersDirty()
 }
 
-App.prototype.markDirty = function(s) {
-  if (s.dirty) return
-  s.dirty = true
-  this.queue.push(s)
-}
-
 App.prototype.state = function(signal) {
   var s = this.signals[signal.uid]
   if (!s) {
-    s = signal.createState(this)
-    this.initState(s)
-  }
-  return s
-}
-
-App.prototype.initState = function(s) {
-  this.signals[s.uid] = s
-  if (this.topPriority > s.priority) {
-    this.markDirty(s)
-  } else {
-    this.recomputeState(s)
+    s = this.signals[signal.uid] = signal.createState(this)
+    s.init()
+    if (this.topPriority > s.priority) {
+      s.markDirty()
+    } else {
+      this.recomputeState(s)
+    }
   }
   return s
 }
@@ -100,33 +89,6 @@ App.prototype.clearEvents = function() {
   this.events = []
 }
 
-App.prototype.requeue = function(s, priority) {
-  if (s.priority < priority) return false
-  var needQueueShuffle = this.lowerPriority(s, priority)
-  if (needQueueShuffle) this.queue.resort()
-  this.markDirty(s)
-  return true
-}
-
-App.prototype.lowerPriority = function(s, priority) {
-  if (priority > s.priority) return false
-  s.priority = priority - 1
-  var touchedDirty = s.dirty
-  for(var key in s.listeners) {
-    var touched = this.lowerPriority(this.signals[key], s.priority)
-    touchedDirty = touchedDirty || touched
-  }
-  return touchedDirty
-}
-
-App.prototype.kill = function(s, listener) {
-  if (listener) s.removeListener(listener)
-  if (s.hold || s.hasListeners()) return
-  delete this.signals[s.uid]
-  s.killed = true
-  s.onkill()
-}
-
 exports.Signal = Signal
 
 function Signal(val) {
@@ -152,7 +114,7 @@ function State(spec, app) {
 }
 
 State.prototype.addListener = function(s) {
-  this.listeners[s.uid] = true
+  this.listeners[s.uid] = s
 }
 
 State.prototype.removeListener = function(s) {
@@ -166,15 +128,63 @@ State.prototype.hasListeners = function() {
   return false
 }
 
+State.prototype.init = function() {}
+
 State.prototype.onkill = function() {}
 
 State.prototype.recompute = function() {}
 
+State.prototype.markDirty = function() {
+  if (this.dirty) return
+  this.dirty = true
+  this.app.queue.push(this)
+}
+
 State.prototype.markListenersDirty = function() {
-  var app = this.app
   for(var key in this.listeners) {
-    app.markDirty(app.signals[key])
+    this.listeners[key].markDirty()
   }
+}
+
+State.prototype.dependOn = function(signal) {
+  var s = this.app.state(signal)
+  s.addListener(this)
+  this.priority = Math.min(this.priority, s.priority - 1)
+  return s
+}
+
+State.prototype.requeue = function() {
+  if (this.priority == this.app.topPriority) return false
+  if (this.lowerListenersPriority(this.priority - 1)) this.app.queue.resort()
+  this.markDirty()
+  return true
+}
+
+State.prototype.lowerListenersPriority = function(priority) {
+  var ret = false
+  for(var key in this.listeners) {
+    var touchedDirty = this.listeners[key].lowerPriority(priority)
+    ret = ret || touchedDirty
+  }
+  return ret
+}
+
+State.prototype.lowerPriority = function(priority) {
+  if (this.priority < priority) return false
+  if (this.lowering) throw new Error('Cycle in the signal graph')
+  this.lowering = true
+  this.priority = priority
+  var touchedDirty = this.lowerListenersPriority(priority - 1)
+  this.lowering = false
+  return this.dirty || touchedDirty
+}
+
+State.prototype.kill = function(listener) {
+  if (listener) this.removeListener(listener)
+  if (this.hasListeners()) return
+  delete this.app.signals[this.uid]
+  this.killed = true
+  this.onkill()
 }
 
 exports.Transform = Transform
@@ -192,18 +202,15 @@ Transform.prototype.createState = function(app) {
 
 function ATransform(spec, app) {
   State.call(this, spec, app)
-  this.fn = spec.fn
-  this.setInputs(spec.inputs)
 }
 
 extend(ATransform, State)
 
-ATransform.prototype.setInputs = function(inputs) {
+ATransform.prototype.init = function() {
+  var inputs = this.spec.inputs
   this.inputs = new Array(inputs.length)
   for(var i = 0; i < inputs.length; i++) {
-    var input = this.inputs[i] = this.app.state(inputs[i])
-    this.priority = Math.min(this.priority, input.priority - 1)
-    input.addListener(this)
+    this.inputs[i] = this.dependOn(inputs[i])
   }
 }
 
@@ -212,12 +219,12 @@ ATransform.prototype.recompute = function() {
   for(var i = 0; i < this.inputs.length; i++) {
     args[i] = this.inputs[i].value
   }
-  this.value = this.fn(this.value, args)
+  this.value = this.spec.fn(this.value, args)
 }
 
 ATransform.prototype.onkill = function() {
   for(var i = 0; i < this.inputs.length; i++) {
-    this.app.kill(this.inputs[i], this)
+    this.inputs[i].kill(this)
   }
 }
 
@@ -241,127 +248,64 @@ Switch.prototype.createState = function(app) {
 
 function ASwitch(spec, app) {
   State.call(this, spec, app)
-  this.input = app.state(spec.input)
-  this.priority = this.input.priority - 1
 }
 
 extend(ASwitch, State)
 
+ASwitch.prototype.init = function() {
+  this.input = this.dependOn(this.spec.input)
+}
+
 ASwitch.prototype.recompute = function() {
   var signal = this.input.value
-    , s = signal && this.app.state(signal)
     , old = this.signal
+    , oldState = this.signalState
 
   if (signal !== old) {
-    if (s) s.addListener(this)
-    if (old) this.app.kill(old, this)
     this.signal = signal
-    if (s && this.app.requeue(this, s.priority)) return
+    this.signalState = signal && this.dependOn(signal)
+    if (oldState) oldState.kill(this)
+    if (this.requeue()) return
   }
 
-  this.value = s && s.value
+  this.value = this.signalState && this.signalState.value
 }
 
 ASwitch.prototype.onkill = function() {
-  var s = this.signal && this.app.state(this.signal)
-  if (s) this.app.kill(s, this)
-  this.app.kill(this.input, this)
+  if (this.signalState) this.signalState.kill(this)
+  this.input.kill(this)
 }
 
-exports.MapSwitch = MapSwitch
+exports.SignalsMap = SignalsMap
 
-function MapSwitch(input, sf) {
+function SignalsMap(input, sf) {
   this.uid = newUid()
   this.input = input
   this.sf = sf
 }
 
-MapSwitch.prototype.createState = function(app) {
-  return new AMapSwitch(this, app)
+SignalsMap.prototype.createState = function(app) {
+  return new ASignalsMap(this, app)
 }
 
-exports.AMapSwitch = AMapSwitch
+exports.ASignalsMap = ASignalsMap
 
-function AMapSwitch(spec, app) {
+function ASignalsMap(spec, app) {
   State.call(this, spec, app)
-  this.sf = spec.sf
-  this.input = app.state(spec.input)
-  this.input.addListener(this)
-  this.priority = this.input.priority - 1
 }
 
-extend(AMapSwitch, State)
+extend(ASignalsMap, State)
 
-AMapSwitch.prototype.setJoiner = function(joiner) {
-  this.joiner = joiner
-  this.joiner.priority = this.priority - 3
+ASignalsMap.prototype.init = function() {
+  this.input = this.dependOn(this.spec.input)
 }
 
-AMapSwitch.prototype.recompute = function() {
+ASignalsMap.prototype.recompute = function() {
   throw new Error('This should be implemented in Clojure')
 }
 
-AMapSwitch.prototype.onkill = function() {
+ASignalsMap.prototype.onkill = function() {
   this.app.kill(this.input, this)
-}
-
-exports.Joiner = Joiner
-
-function Joiner(router, post) {
-  this.uid = newUid()
-  this.router = router
-  this.post = post
-}
-
-Joiner.prototype.createState = function(app) {
-  return new AJoiner(this, app)
-}
-
-function AJoiner(spec, app) {
-  State.call(this, spec, app)
-  this.post = spec.post
-  this.signals = {}
-  this.router = spec.router.createState(app)
-  this.router.setJoiner(this)
-  this.router.hold = true
-  this.app.initState(this.router)
-  this.upstreamPriority = this.priority
-}
-
-extend(AJoiner, State)
-
-AJoiner.prototype.add = function(k, signal) {
-  var s = this.app.state(signal)
-  s.addListener(this)
-  this.upstreamPriority = Math.min(this.upstreamPriority, s.priority)
-  this.signals[s.uid] = [k, s]
-}
-
-AJoiner.prototype.remove = function(signal) {
-  var uid = signal.uid
-  var s = this.signals[uid][1]
-  this.app.kill(s, this)
-  delete this.signals[uid]
-}
-
-AJoiner.prototype.onkill = function() {
-  for(var key in this.signals) {
-    this.app.kill(this.signals[key][1], this)
-  }
-  this.router.hold = false
-  this.app.kill(this.router)
-}
-
-AJoiner.prototype.recompute = function() {
-  if (this.app.requeue(this, this.upstreamPriority)) return
-  var vals = []
-  for(var key in this.signals) {
-    var x = this.signals[key]
-    var k = x[0]
-    var v = x[1].value
-    vals.push(cljs.core.vector(k, v))
-  }
-  this.value = this.post(vals)
 }
 
 exports.Heap = Heap
