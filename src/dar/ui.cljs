@@ -290,7 +290,7 @@
       (if i?
         (if (nil? ret)
           (recur (name k) (next m))
-          (recur (js* "~{} + ~{} + ~{}" ret " " (name k)) (next m)))
+          (recur (str ret " " (name k)) (next m)))
         (recur ret (next m)))
       ret)))
 
