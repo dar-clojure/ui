@@ -6,47 +6,51 @@
 
 (enable-console-print!)
 
-(def commands (frp/new-event))
+(def commands
+  (frp/new-event))
 
-(def todos (frp/automaton
-             {}
-             {:new (fn [todos text]
-                     (let [id (js/Date.now)]
-                       (assoc todos id {:text text
-                                        :completed? false})))
+(def todos
+  (frp/automaton
+    {}
+    {:new (fn [todos text]
+            (let [id (js/Date.now)]
+              (assoc todos id {:text text
+                               :completed? false})))
 
-              :delete (fn [todos id]
-                        (dissoc todos id))
+     :delete (fn [todos id]
+               (dissoc todos id))
 
-              :change-text (fn [todos id text]
-                             (assoc-in todos [id :text] text))
+     :change-text (fn [todos id text]
+                    (assoc-in todos [id :text] text))
 
-              :toggle (fn [todos id completed?]
-                        (assoc-in todos [id :completed?] completed?))
+     :toggle (fn [todos id completed?]
+               (assoc-in todos [id :completed?] completed?))
 
-              :toggle-all (fn [todos completed?]
-                            (reduce (fn [todos k]
-                                      (assoc-in todos [k :completed?] completed?))
-                              todos
-                              (keys todos)))
+     :toggle-all (fn [todos completed?]
+                   (reduce (fn [todos k]
+                             (assoc-in todos [k :completed?] completed?))
+                     todos
+                     (keys todos)))
 
-              :clear-completed (fn [todos]
-                                 (reduce (fn [todos [k {completed? :completed?}]]
-                                           (if completed?
-                                             (dissoc todos k)
-                                             todos))
-                                   todos todos))}
-             commands))
+     :clear-completed (fn [todos]
+                        (reduce (fn [todos [k {completed? :completed?}]]
+                                  (if completed?
+                                    (dissoc todos k)
+                                    todos))
+                          todos todos))}
+    commands))
 
-(def stats (frp/bind [todos todos]
-             (let [completed (count (filter #(-> % second :completed?) todos))
-                   all (count todos)]
-               {:all-completed? (= all completed)
-                :all all
-                :completed completed
-                :left (- all completed)})))
+(def stats
+  (frp/bind [todos todos]
+    (let [completed (count (filter #(-> % second :completed?) todos))
+          all (count todos)]
+      {:all-completed? (= all completed)
+       :all all
+       :completed completed
+       :left (- all completed)})))
 
-(def mode (frp/new-signal :all))
+(def mode
+  (frp/new-signal :all))
 
 (defn todo-item [todo]
   (let [editing? (frp/new-signal false)]
@@ -74,7 +78,8 @@
                                     [commands [:change-text id text]])
                                   [editing? false]]))})))))
 
-(def enter-new (frp/new-event))
+(def enter-new
+  (frp/new-event))
 
 (def main
   (frp/bind [items (frp/map-switch todo-item todos)
@@ -124,8 +129,16 @@
         :ev-click (to mode type)}
       text)))
 
-(defn -main []
-  (ui/render! main (dom/get "#todoapp")))
+(def app
+  (frp/new-app))
+
+(defn ^:export fill [n]
+  (time
+    (dotimes [i n]
+      (frp/push! app commands [:new (str i)]))))
+
+(defn ^:export -main []
+  (ui/render! app main (dom/get "#todoapp")))
 
 (ui/install-event! ::ev-text :keydown (fn [e]
                                         (let [key (.-keyCode e)
