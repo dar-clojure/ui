@@ -447,4 +447,13 @@ Heap.prototype.init = function(arr) {
   this.resort()
 }
 
+function time(name, f) {
+  return function() {
+    var begin = new Date
+    f.apply(this, arguments)
+    var end = new Date
+    console.log(name + ': ' + (end.getTime() - begin.getTime()) + ' ms')
+  }
+}
+
 })(dar.ui.frp.core)
