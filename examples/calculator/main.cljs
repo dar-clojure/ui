@@ -4,6 +4,8 @@
             [dar.ui.frp :as frp :include-macros true])
   (:require-macros [dar.ui.html :refer [TABLE TBODY TD TR DIV]]))
 
+(enable-console-print!)
+
 (def initial-state {:digits nil
                     :decimal-point nil
                     :amount nil
@@ -78,7 +80,7 @@
   ([commands-signal label command] (key commands-signal label command 1))
   ([commands-signal label command span]
    (TD {:colspan span}
-     (DIV {:id (-> command first name) :ev-click (to commands-signal command)}
+     (DIV {:id (-> command first name) :clicks (to commands-signal command)}
        label))))
 
 (defn keys [commands-signal]

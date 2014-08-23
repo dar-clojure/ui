@@ -1,6 +1,5 @@
 (ns todos.main
   (:require [dar.ui :as ui :refer [to to* classes]]
-            [dar.ui.dom :as dom]
             [dar.ui.frp :as frp :include-macros true])
   (:require-macros [dar.ui.html :refer [DIV SPAN A H1 UL LI INPUT LABEL BUTTON HEADER SECTION FOOTER STRONG]]))
 
@@ -66,17 +65,17 @@
         (DIV {:class "view"}
           (INPUT {:class "toggle" :type "checkbox"
                   :value completed?
-                  :ev-change (to commands (fn [c?]
+                  :changes (to commands (fn [c?]
                                             [:toggle id c?]))})
-          (LABEL {:ev-dblclick (to editing? true)}
+          (LABEL {:dblclicks (to editing? true)}
             text)
-          (BUTTON {:class "destroy" :ev-click (to commands [:delete id])}))
+          (BUTTON {:class "destroy" :clicks (to commands [:delete id])}))
         (INPUT {:class "edit"
                 ::enter [text e?]
-                ::ev-text (to* (fn [text]
-                                 [(if text
-                                    [commands [:change-text id text]])
-                                  [editing? false]]))})))))
+                ::text (to* (fn [text]
+                              [(if text
+                                 [commands [:change-text id text]])
+                               [editing? false]]))})))))
 
 (def enter-new
   (frp/new-event))
@@ -94,16 +93,16 @@
                   :placeholder "What needs to be done?"
                   :autofocus true
                   ::enter enter
-                  ::ev-text (to* (fn [text]
-                                   [(if text
-                                      [commands [:new text]])
-                                    [enter-new ["" true]]]))}))
+                  ::text (to* (fn [text]
+                                [(if text
+                                   [commands [:new text]])
+                                 [enter-new ["" true]]]))}))
 
         (SECTION {:id "main" :class (classes {:hidden (= all 0)})}
           (INPUT {:id "toggle-all" :type "checkbox"
                   :value all-completed?
-                  :ev-change (to commands (fn [c?]
-                                            [:toggle-all c?]))})
+                  :changes (to commands (fn [c?]
+                                          [:toggle-all c?]))})
           (UL {:id "todo-list"}
             [items]))
 
@@ -119,14 +118,14 @@
             (filter-link mode :completed "Completed"))
           (BUTTON {:id "clear-completed"
                    :class (classes {:hidden (= 0 completed)})
-                   :ev-click (to commands [:clear-completed])}
+                   :clicks (to commands [:clear-completed])}
             (str "Clear completed (" completed ")")))))))
 
 (defn filter-link [m type text]
   (LI nil
     (A {:href "#"
         :class (classes {:selected (= m type)})
-        :ev-click (to mode type)}
+        :clicks (to mode type)}
       text)))
 
 (def app
@@ -138,18 +137,18 @@
       (frp/push! app commands [:new (str i)]))))
 
 (defn ^:export -main []
-  (ui/render! app main (dom/get "#todoapp")))
+  (ui/render! app main (.getElementById js/document "todoapp")))
 
-(ui/install-event! ::ev-text :keydown (fn [e]
-                                        (let [key (.-keyCode e)
-                                              el (.-target e)
-                                              text (-> el .-value .trim)]
-                                          (condp = key
-                                            13 text
-                                            27 false
-                                            nil))))
+(ui/install-event! ::text :keydown (fn [e]
+                                     (let [key (.-keyCode e)
+                                           el (.-target e)
+                                           text (-> el .-value .trim)]
+                                       (condp = key
+                                         13 text
+                                         27 false
+                                         nil))))
 
 (ui/install-plugin! ::enter (fn [el [text focus?] _]
                               (set! (.-value el) text)
                               (when focus?
-                                (dom/tick #(.select el)))))
+                                (js/setTimeout #(.select el)))))
