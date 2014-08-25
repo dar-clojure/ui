@@ -137,6 +137,12 @@
   (switch join-map
     (core/SignalsMap. input sf)))
 
+(defn port [f]
+  (core/Port. f))
+
+(defn port* [f]
+  (as-event! (port f)))
+
 ;
 ; App API
 ;

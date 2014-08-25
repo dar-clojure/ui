@@ -356,6 +356,41 @@ ASignalsMap.prototype.onkill = function() {
   this.app.kill(this.input, this)
 }
 
+function Port(fn) {
+  this.uid = newUid()
+  this.fn = fn
+  this.event = false
+}
+
+Port.prototype.createState = function(app) {
+  return new APort(this, app)
+}
+
+function APort(spec, app) {
+  State.call(this, spec, app)
+}
+
+extend(APort, State)
+
+APort.prototype.init = function() {
+  var self = this
+  var app = this.app
+  var signal = this.spec
+  var value, initializing = true
+  this._kill = signal.fn(function push(val) {
+    if (initializing) return value = val
+    app.push(signal, val)
+    app.recompute()
+  })
+  initializing = false
+  this.spec = null
+  this.value = value
+}
+
+APort.prototype.onkill = function() {
+  this._kill && this._kill()
+}
+
 exports.Heap = Heap
 
 function Heap(compare){
