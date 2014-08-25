@@ -279,7 +279,7 @@ ASwitch.prototype.plugNewSignal = function(signal) {
 }
 
 ASwitch.prototype.lowerPriority = function(priority) {
-  if (this.priority < this.input.priority)
+  if (this.priority < this.input.getDownstreamPriority())
     return this.lowerDownstream(priority)
   this.priority = priority
   var dirty = this.lowerDownstream(priority - 1)
