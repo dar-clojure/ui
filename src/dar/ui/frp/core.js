@@ -391,6 +391,36 @@ APort.prototype.onkill = function() {
   this._kill && this._kill()
 }
 
+function Pipe(target, src) {
+  this.uid = newUid()
+  this.src = src
+  this.target = target
+}
+
+Pipe.prototype.createState = function(app) {
+  return new APipe(this, app)
+}
+
+function APipe(spec, app) {
+  State.call(this, spec, app)
+}
+
+extend(APipe, State)
+
+APipe.prototype.init = function() {
+  this.src = this.dependOn(this.spec.src)
+}
+
+APipe.prototype.markListenersDirty = function() {}
+
+APipe.prototype.recompute = function() {
+  this.app.push(this.spec.target, this.src.value)
+}
+
+APipe.prototype.onkill = function() {
+  this.src.kill(this)
+}
+
 exports.Heap = Heap
 
 function Heap(compare){

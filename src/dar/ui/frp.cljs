@@ -143,6 +143,9 @@
 (defn port* [f]
   (as-event! (port f)))
 
+(defn pipe [target src]
+  (core/Pipe. target src))
+
 ;
 ; App API
 ;
