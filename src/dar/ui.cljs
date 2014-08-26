@@ -55,6 +55,35 @@
         (create-children append new))
       (remove-children next-element el old))))
 
+(defn- update-sorted-children [parent ref first-el new-children old-children]
+  (let [old (loop [m (transient {})
+                   [o & rest] old-children
+                   el first-el]
+              (if o
+                (recur
+                  (assoc! m (key o) [o el])
+                  rest
+                  (util/prevSibling el))
+                m))
+        deleted (loop [old old
+                       [n & rest-new] new-children
+                       ref ref]
+                  (if n
+                    (let [[o el] (get old (key n))
+                          el (if el
+                               (update n o el)
+                               (create n))]
+                      (.insertBefore parent el ref)
+                      (recur
+                        (if o
+                          (dissoc! old (key o))
+                          old)
+                        rest-new
+                        el))
+                    (persistent! old)))]
+    (doseq [[_ [o el]] deleted]
+      (remove o el))))
+
 (defn update-children! [parent new-children old-children]
   (let [[rest-new rest-old ref] (update-non-sorted-children
                                   util/nextSibling
@@ -63,14 +92,19 @@
                                   new-children
                                   old-children)]
     (when (seq rest-new)
-      (let [[left-new left-old] (update-non-sorted-children
-                                  util/prevSibling
-                                  #(.insertBefore parent % ref)
-                                  (util/lastChild parent)
-                                  (reverse rest-new)
-                                  (reverse rest-old))]
+      (let [[left-new left-old el] (update-non-sorted-children
+                                     util/prevSibling
+                                     #(.insertBefore parent % ref)
+                                     (util/lastChild parent)
+                                     (reverse rest-new)
+                                     (reverse rest-old))]
         (when (seq left-new)
-          (throw (js/Error. "This is not yet supported")))))))
+          (update-sorted-children
+            parent
+            (util/nextSibling el)
+            el
+            left-new
+            left-old))))))
 
 ;
 ; Plugins
