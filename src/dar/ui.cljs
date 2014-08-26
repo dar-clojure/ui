@@ -224,7 +224,10 @@
       (frp/push! app
         (filter (complement nil?)
           (apply concat
-            (map #(% e)
+            (map (fn [f]
+                    (if (fn? f)
+                      (f e)
+                      (mapcat #(% e) f)))
               (util/listeners el (.-type e)))))))))
 
 (defn to* [proc]
