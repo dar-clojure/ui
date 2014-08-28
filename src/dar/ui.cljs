@@ -162,7 +162,7 @@
   IHtml
   (tag [this] tag)
   (attributes [this] attrs)
-  (set-attributes [this m] (HtmlElement. tag m child))
+  (set-attributes [this m] (HtmlElement. tag m ch))
   (children [this] ch)
   (set-children [this col] (HtmlElement. tag attrs col))
 
@@ -285,7 +285,7 @@
 (install-plugin! :events (fn [el m old-m]
                            (let [events (util/events el *event-handler*)]
                              (diff (fn [k l old-l]
-                                     (.updateListener events k l old-l))
+                                     (.updateListener events (name k) "events" l old-l))
                                m
                                old-m))))
 
@@ -351,3 +351,7 @@
                                  (if (seq c)
                                    (str c " " (name class))
                                    (name class))))))
+
+(defn listen [el type f]
+  (set-attributes el
+    (update-in (attributes el) [:events type] conj f)))

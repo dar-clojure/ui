@@ -306,11 +306,12 @@ ASwitch.prototype.onkill = function() {
   this.input.kill(this)
 }
 
-function DummySwitch(sw) {
+function DummySwitch(sw, delayed) {
   this.app = sw.app
   this.priority = sw.downstreamPriority
   this.value = sw.value
   this.sw = sw
+  this.delayed = delayed
 }
 
 extend(DummySwitch, State)
@@ -321,6 +322,7 @@ DummySwitch.prototype.recompute = function() {
 }
 
 DummySwitch.prototype.markListenersDirty = function() {
+  if (this.delayed) return
   for(var key in this.sw.listeners) {
     this.sw.listeners[key].markDirty()
   }
@@ -357,7 +359,6 @@ ADSwitch.prototype.recompute = function() {
   if (signal !== old) {
     this.plugNewSignal(signal)
     if (oldState) oldState.kill(this)
-    return // peek only next value from the upstream
   }
 
   if (signal) {
@@ -415,6 +416,8 @@ ASignalsMap.prototype.onkill = function() {
   this.app.kill(this.input, this)
 }
 
+exports.Port = Port
+
 function Port(fn) {
   this.uid = newUid()
   this.fn = fn
@@ -449,6 +452,8 @@ APort.prototype.init = function() {
 APort.prototype.onkill = function() {
   this._kill && this._kill()
 }
+
+exports.Pipe = Pipe
 
 function Pipe(target, src) {
   this.uid = newUid()
