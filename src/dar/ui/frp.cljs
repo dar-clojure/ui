@@ -108,6 +108,25 @@
   ([f x y] (as-event! (switch f x y)))
   ([f x y z & args] (as-event! (apply switch f x y z args))))
 
+(defn d-switch
+  "
+  (d-switch ..) is like a (switch ..), except it adopts only
+  the next value of a just plugged upstream signal. That is, it's value
+  wouldn't change in the current recompute cycle
+  and may remain the same in the next one, until upstream
+  signal will produce a new value.
+  "
+  ([input] (core/DSwitch. input))
+  ([f x] (d-switch (<- f x)))
+  ([f x y] (d-switch (<- f x y)))
+  ([f x y z & args] (d-switch (apply <- f x y z args))))
+
+(defn d-switch*
+  ([input] (as-event! (d-switch input)))
+  ([f x] (as-event! (d-switch f x)))
+  ([f x y] (as-event! (d-switch f x y)))
+  ([f x y z & args] (as-event! (apply d-switch f x y z args))))
+
 (set! (.-recompute core/ASignalsMap.prototype)
   (fn []
     (this-as this

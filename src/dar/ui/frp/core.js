@@ -245,6 +245,7 @@ Switch.prototype.createState = function(app) {
 
 function ASwitch(spec, app) {
   State.call(this, spec, app)
+  this.downstreamPriority = 0
 }
 
 extend(ASwitch, State)
@@ -323,6 +324,63 @@ DummySwitch.prototype.markListenersDirty = function() {
     this.sw.listeners[key].markDirty()
   }
 }
+
+exports.DSwitch = DSwitch
+
+function DSwitch(input) {
+  this.uid = newUid()
+  this.input = input
+  this.event = false
+}
+
+DSwitch.prototype.createState = function(app) {
+  return new ADSwitch(this, app)
+}
+
+function ADSwitch(spec, app) {
+  State.call(this, spec, app)
+  this.downstreamPriority = 0
+}
+
+extend(ADSwitch, State)
+
+ADSwitch.prototype.init = function() {
+  this.input = this.dependOn(this.spec.input)
+}
+
+ADSwitch.prototype.recompute = function() {
+  var signal = this.input.value
+    , old = this.signal
+    , oldState = this.signalState
+
+  if (signal !== old) {
+    this.plugNewSignal(signal)
+    if (oldState) oldState.kill(this)
+    return // peek only next value from the upstream
+  }
+
+  if (signal) {
+    this.dummy = new DummySwitch(this)
+    this.dummy.markDirty()
+  }
+}
+
+ADSwitch.prototype.plugNewSignal = function(signal) {
+  if (!signal) return this.signal = this.signalState = null // do not erase the current value
+  this.signal = signal
+  var s = this.signalState = this.app.state(signal)
+  s.addListener(this)
+  var dp = Math.min(this.priority - 1, s.getDownstreamPriority())
+  if (this.lowerDownstream(dp)) this.app.queue.resort()
+}
+
+ADSwitch.prototype.lowerPriority = ASwitch.prototype.lowerPriority
+
+ADSwitch.prototype.lowerDownstream = ASwitch.prototype.lowerDownstream
+
+ADSwitch.prototype.getDownstreamPriority = ASwitch.prototype.getDownstreamPriority
+
+ADSwitch.prototype.onkill = ASwitch.prototype.onkill
 
 exports.SignalsMap = SignalsMap
 
