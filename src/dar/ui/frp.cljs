@@ -39,6 +39,12 @@
                       (apply f args))
      (js-arguments 1))))
 
+(defn <-*
+  ([x] (as-event! (<- identity x)))
+  ([f x] (as-event! (<- f x)))
+  ([f x y] (as-event! (<- f x y)))
+  ([f x y z & args] (as-event! (apply <- f x y z args))))
+
 (defn foldp
   ([f init x]
    (doto (core/Transform. (fn [prev [v]]

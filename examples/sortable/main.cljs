@@ -10,8 +10,7 @@
   [(.-screenX e) (.-screenY e)])
 
 (def mouse-position
-  (util/event-port js/window :mousemove
-    (fn [] [0 0])
+  (util/event-port* js/window :mousemove
     mouse-event-pos))
 
 (def mouseup

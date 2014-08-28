@@ -1,2 +1,3 @@
 {:main-ns sortable.main
- :main-html "sortable.html"}
+ :main-html "sortable.html"
+ :css ["sortable.css"]}

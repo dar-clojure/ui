@@ -19,7 +19,6 @@
   (let [inputs (frp/new-signal)
         commands (frp/new-signal)
         state-signal (frp/foldp (fn [state values cmds]
-                                  (println values)
                                   (if-let [[k v] (first (filter (comp some? second)
                                                           cmds))]
                                     (if-let [f (get-in state [:methods k])]

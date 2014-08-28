@@ -345,11 +345,7 @@ function ADSwitch(spec, app) {
   this.downstreamPriority = 0
 }
 
-extend(ADSwitch, State)
-
-ADSwitch.prototype.init = function() {
-  this.input = this.dependOn(this.spec.input)
-}
+extend(ADSwitch, ASwitch)
 
 ADSwitch.prototype.recompute = function() {
   var signal = this.input.value
@@ -362,27 +358,10 @@ ADSwitch.prototype.recompute = function() {
   }
 
   if (signal) {
-    this.dummy = new DummySwitch(this)
+    this.dummy = new DummySwitch(this, signal !== old)
     this.dummy.markDirty()
   }
 }
-
-ADSwitch.prototype.plugNewSignal = function(signal) {
-  if (!signal) return this.signal = this.signalState = null // do not erase the current value
-  this.signal = signal
-  var s = this.signalState = this.app.state(signal)
-  s.addListener(this)
-  var dp = Math.min(this.priority - 1, s.getDownstreamPriority())
-  if (this.lowerDownstream(dp)) this.app.queue.resort()
-}
-
-ADSwitch.prototype.lowerPriority = ASwitch.prototype.lowerPriority
-
-ADSwitch.prototype.lowerDownstream = ASwitch.prototype.lowerDownstream
-
-ADSwitch.prototype.getDownstreamPriority = ASwitch.prototype.getDownstreamPriority
-
-ADSwitch.prototype.onkill = ASwitch.prototype.onkill
 
 exports.SignalsMap = SignalsMap
 
