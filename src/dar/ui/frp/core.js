@@ -36,6 +36,7 @@ App.prototype.watch = function(signal, cb) {
     return args[0]
   }, [signal])
   this.state(watch)
+  this.recompute()
   return watch
 }
 
