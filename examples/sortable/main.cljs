@@ -59,12 +59,16 @@
 (def app
   (frp/new-app))
 
+(def images
+  (DIV {:class "gallery"}
+    [(for [i (range 1 11)]
+       (IMG {:key i
+             :src (str "http://lorempixel.com/120/120/nature/" i)
+             :class "gallery-image no-drag-select"}))]))
+
 (defn -main []
   (ui/render!
     app
     (sortable
-      (frp/new-signal
-        (DIV nil
-          [(for [i (range 1 11)]
-             (IMG {:key i :src "http://lorempixel.com/120/120/nature/"}))])))
+      (frp/new-signal images))
     (js/document.getElementById "app")))
