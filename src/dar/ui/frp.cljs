@@ -116,11 +116,9 @@
 
 (defn d-switch
   "
-  (d-switch ..) is like a (switch ..), except it adopts only
-  the next value of a just plugged upstream signal. That is, it's value
-  wouldn't change in the current recompute cycle
-  and may remain the same in the next one, until upstream
-  signal will produce a new value.
+  (d-switch ..) is like a (switch ..), except it doesn't
+  notify listeners about value change upon switching to another signal.
+  Useful for breaking cycles.
   "
   ([input] (core/DSwitch. input))
   ([f x] (d-switch (<- f x)))
