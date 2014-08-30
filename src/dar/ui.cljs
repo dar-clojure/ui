@@ -336,7 +336,7 @@
       ret)))
 
 (defn add-class [el class]
-  (set-attrubutes el
+  (set-attributes el
     (update-in (attributes el) [:class]
       (fn [c]
         (if (seq c)
