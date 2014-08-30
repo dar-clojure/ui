@@ -21,7 +21,6 @@ exports.App = App
 function App() {
   this.signals = {}
   this.queue = new Heap(comparePriorities)
-  this.topPriority = Number.NEGATIVE_INFINITY
   this.events = []
 }
 
@@ -54,11 +53,7 @@ App.prototype.state = function(signal) {
   if (!s) {
     s = this.signals[signal.uid] = signal.createState(this)
     s.init()
-    if (this.topPriority > s.priority) {
-      s.markDirty()
-    } else {
-      this.recomputeState(s)
-    }
+    s.markDirty()
   }
   return s
 }
@@ -67,10 +62,8 @@ App.prototype.recompute = function() {
   var s
   while(s = this.queue.pop()) {
     if (s.killed) continue
-    this.topPriority = s.priority
     this.recomputeState(s)
   }
-  this.topPriority = Number.NEGATIVE_INFINITY
   this.clearEvents()
 }
 

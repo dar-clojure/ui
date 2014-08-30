@@ -226,19 +226,19 @@
           (apply concat
             (map (fn [f]
                     (if (fn? f)
-                      (f e)
-                      (mapcat #(% e) f)))
+                      (f e el)
+                      (mapcat #(% e el) f)))
               (util/listeners el (.-type e)))))))))
 
 (defn to* [proc]
-  (fn [e]
-    (proc e)))
+  (fn [e el]
+    (proc e el)))
 
 (defn to
   ([signal] (to signal nil))
   ([signal proc]
-   (fn [e]
-     (let [val (cond (fn? proc) (proc e)
+   (fn [e el]
+     (let [val (cond (fn? proc) (proc e el)
                      (nil? proc) e
                      :else proc)]
        (when-not (nil? val)
@@ -324,16 +324,6 @@
 ; Virtual DOM utils
 ;
 
-(defn update-attributes [el f]
-  (set-attributes el (f (attributes el))))
-
-(defn update-attribute [el k f]
-  (update-attributes el (fn [attrs]
-                          (let [v (f (get attrs k))]
-                            (if (nil? v)
-                              (dissoc attrs k)
-                              (assoc attrs k v))))))
-
 (defn classes [m]
   (loop [ret nil
          m m]
@@ -345,12 +335,13 @@
         (recur ret (next m)))
       ret)))
 
-(defn add-class
-  ([el class]
-   (update-attribute el :class (fn [c]
-                                 (if (seq c)
-                                   (str c " " (name class))
-                                   (name class))))))
+(defn add-class [el class]
+  (set-attrubutes el
+    (update-in (attributes el) [:class]
+      (fn [c]
+        (if (seq c)
+          (str c " " (name class))
+          (name class))))))
 
 (defn listen [el type f]
   (set-attributes el

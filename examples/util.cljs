@@ -11,9 +11,11 @@
                 (fn onkill []
                   (.removeEventListener ctx (name type) handler))))))
 
-(defn event-port* [ctx type transform]
-  (frp/as-event!
-    (event-port ctx type (fn [] nil) transform)))
+(defn event-port*
+  ([ctx type] (event-port* ctx type identity))
+  ([ctx type transform]
+   (frp/as-event!
+     (event-port ctx type (fn [] nil) transform))))
 
 (defn state-machine [state]
   (let [inputs (frp/new-signal)
@@ -30,8 +32,23 @@
                                     state))
                        state
                        (frp/d-switch frp/join-map inputs)
-                       (frp/d-switch* frp/join-map commands))]
-    (frp/bind [out state-signal
+                       (frp/d-switch* frp/join-map commands))
+        output-signals (frp/foldp (fn [signals {new :output}]
+                                    (let [old (-> signals meta :constructors)]
+                                      (if (identical? old new)
+                                        signals
+                                        (with-meta
+                                          (into {}
+                                            (map (fn [[k f]]
+                                                   (if (identical? f (get old k))
+                                                     [k (get signals k)]
+                                                     [k (f state-signal)]))
+                                              new))
+                                          {:constructors new}))))
+                         nil
+                         state-signal)
+        output (frp/switch frp/join-map output-signals)]
+    (frp/bind [out output
                _ (frp/pipe inputs (frp/<- :inputs state-signal))
                _ (frp/pipe commands (frp/<- :commands state-signal))]
       out)))

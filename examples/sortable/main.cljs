@@ -6,53 +6,87 @@
 
 (enable-console-print!)
 
-(defn mouse-event-pos [e]
+(def counter (atom 0))
+
+(defn new-uid []
+  (swap! counter inc))
+
+(defn mouse-pos [e]
+  [(+ js/window.scrollX (.-screenX e))
+   (+ js/window.scrollY (.-screenY e))])
+
+(defn element-pos [el]
+  (let [r (.getBoundingClientRect el) ]
+    [(+ js/window.scrollX (.-left r))
+     (+ js/window.scrollY (.-top r))]))
+
+(defn mouse-screen-pos [e]
   [(.-screenX e) (.-screenY e)])
 
-(def mouse-position
-  (util/event-port* js/window :mousemove
-    mouse-event-pos))
+(def mousemove
+  (util/event-port* js/window :mousemove))
 
 (def mouseup
-  (util/event-port* js/window :mouseup
-    (constantly true)))
+  (util/event-port* js/window :mouseup))
+
+(ui/install-plugin! ::key (fn [el k _]
+                            (set! (.-__sortable_item_key el) k)))
+
+(defn item-key [el]
+  (.-__sortable_item_key el))
+
+(defn target [el]
+  (when el
+    (if (some? (item-key el))
+      el
+      (recur (.-parentNode el)))))
 
 (defn initial-state [col]
-  (let [capture (frp/new-event)
+  (let [id (new-uid)
+        capture (frp/new-event)
         html (frp/<- (fn [col]
                        (ui/set-children col
-                         (map (fn [el]
-                                (ui/listen el :mousedown
-                                  (ui/to capture (fn [e]
-                                                   [(ui/key el) (mouse-event-pos e)]))))
-                           (ui/children col))))
+                         (vec
+                           (map-indexed (fn [i el]
+                                  (-> el
+                                    (ui/set-attributes (assoc (ui/attributes el) ::key [id (ui/key el)]))
+                                    (ui/listen :mousedown
+                                      (ui/to capture (fn [e dom-el]
+                                                       [i
+                                                        (mouse-pos e)
+                                                        (element-pos dom-el)
+                                                        (.cloneNode dom-el true)])))))
+                             (ui/children col)))))
                col)]
     {:commands {:capture capture}
      :inputs {:col html}
+     :id id
      :html html
+     :output {:html #(frp/switch :html %)}
      :methods {:capture captured-state}}))
 
-(defn captured-state [state [k pos]]
+(defn captured-state [state [idx mouse-pos el-pos phantom]]
   (-> state
     (update-in [:commands] assoc
-      :mouse mouse-position
+      :mouse mousemove
       :mouseup mouseup)
     (assoc
-      :start pos
       :initial-state state
+      :mouse-start-pos mouse-pos
+      :el-start el-pos
       :methods captured-state-methods
       :html (frp/new-signal
               (-> state :values :col)))))
 
 (def captured-state-methods
-  {:mouse (fn [state pos]
-            (println pos)
+  {:mouse (fn [state e]
+            (println (mouse-pos e))
             state)
    :mouseup (fn [state _]
               (:initial-state state))})
 
 (defn sortable [col]
-  (frp/switch :html
+  (frp/<- :html
     (util/state-machine
       (initial-state col))))
 
