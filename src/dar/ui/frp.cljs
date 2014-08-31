@@ -169,6 +169,12 @@
 (defn pipe [target src]
   (core/Pipe. target src))
 
+(defn pull-only [input]
+  (core/PullOnly. input))
+
+(defn effect [f kill x]
+  (core/Effect. f kill (js-arguments 2)))
+
 ;
 ; App API
 ;

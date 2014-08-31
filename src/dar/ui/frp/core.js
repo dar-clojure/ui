@@ -457,6 +457,87 @@ APipe.prototype.onkill = function() {
   this.src.kill(this)
 }
 
+exports.PullOnly = PullOnly
+
+function PullOnly(input) {
+  this.uid = newUid()
+  this.input = input
+}
+
+PullOnly.prototype.createState = function(app) {
+  return new APullOnly(this, app)
+}
+
+function APullOnly(spec, app) {
+  State.call(this, spec, app)
+}
+
+extend(APullOnly, State)
+
+APullOnly.prototype.init = function() {
+  this.input = this.dependOn(this.spec.input)
+}
+
+APullOnly.prototype.recompute = function() {
+  this.value = this.input.value
+}
+
+APullOnly.prototype.markListenersDirty = function() {}
+
+APullOnly.prototype.onkill = function() {
+  this.input.kill(this)
+}
+
+exports.Effect = Effect
+
+function Effect(fn, kill, inputs) {
+  this.uid = newUid()
+  this.fn = fn
+  this.kill = kill
+  this.inputs = inputs
+}
+
+Effect.prototype.createState = function(app) {
+  return new AEffect(this, app)
+}
+
+function AEffect(spec, app) {
+  State.call(this, spec, app)
+}
+
+extend(AEffect, State)
+
+AEffect.prototype.init = function() {
+  var inputs = this.spec.inputs
+  this.inputs = new Array(inputs.length)
+  for(var i = 0; i < inputs.length; i++) {
+    this.inputs[i] = this.dependOn(inputs[i])
+  }
+}
+
+AEffect.prototype.recompute = function() {
+  var args = new Array(this.inputs.length)
+  for(var i = 0; i < this.inputs.length; i++) {
+    args[i] = this.inputs[i].value
+  }
+  this.spec.fn.apply(null, args)
+}
+
+AEffect.prototype.onkill = function() {
+  for(var i = 0; i < this.inputs.length; i++) {
+    this.inputs[i].kill(this)
+  }
+  this.spec.kill && this.spec.kill()
+}
+
+AEffect.prototype.markListenersDirty = function() {}
+
+AEffect.prototype.lowerListenersPriority = function() {}
+
+AEffect.prototype.getDownstreamPriority = function() {
+  return 0
+}
+
 exports.Heap = Heap
 
 function Heap(compare){
