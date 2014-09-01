@@ -4,6 +4,10 @@
 (defmacro js-arguments [i]
   `(js/Array.prototype.slice.call js/arguments ~i))
 
+(defmacro js-array [& xs]
+  (let [literal (str "[" (string/join ", " (repeat (count xs) "~{}")) "]")]
+    `(~'js* ~literal ~@xs)))
+
 (defmacro bind [& args]
   (let [name (if (symbol? (first args))
                [(first args)])
@@ -12,10 +16,9 @@
                             args)
         bindings (partition 2 bindings)
         params (map first bindings)
-        signals (map second bindings)
-        array-literal (str "[" (string/join ", " (repeat (count signals) "~{}")) "]")]
+        signals (map second bindings)]
     `(dar.ui.frp.core/Transform. (fn ~@name [prev# [~@params]] ~@body)
-       (~'js* ~array-literal ~@signals))))
+       (js-array ~@signals))))
 
 (defmacro bind* [& args]
   `(as-event (bind ~@args)))
