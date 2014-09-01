@@ -141,7 +141,7 @@
   ([x y z i j & rest]
    (core/Transform. join-fn (js-into-array (js-array x y z i j) rest))))
 
-(defn join-map [m]
+(defn map-join [m]
   (let [ks (keys m)
         signals (vals m)]
     (core/Transform. (fn [_ vals]
@@ -211,7 +211,7 @@
                 new))))))))
 
 (defn map-switch [sf input]
-  (switch join-map
+  (switch map-join
     (core/SignalsMap. input sf)))
 
 (defn port [f]

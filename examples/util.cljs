@@ -31,8 +31,8 @@
                                       state)
                                     state))
                        state
-                       (frp/d-switch frp/join-map inputs)
-                       (frp/d-switch* frp/join-map commands))
+                       (frp/d-switch frp/map-join inputs)
+                       (frp/d-switch* frp/map-join commands))
         lowered-state-signal (->> state-signal (frp/<- identity) (frp/<- identity))
         output-signals (frp/foldp (fn [signals {new :output}]
                                     (let [old (-> signals meta :constructors)]
@@ -48,7 +48,7 @@
                                           {:constructors new}))))
                          nil
                          state-signal)
-        output (frp/switch frp/join-map output-signals)]
+        output (frp/switch frp/map-join output-signals)]
     (frp/bind [out output
                _ (frp/pipe inputs (frp/<- :inputs state-signal))
                _ (frp/pipe commands (frp/<- :commands state-signal))]
