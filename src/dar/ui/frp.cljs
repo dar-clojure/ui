@@ -30,13 +30,9 @@
 
 ;; TODO: arg dispatch is likely to be an overoptimization.
 ;; Plain js f.apply(null, args) is smart. Need to review
-;; what cljs (apply ..) doese and see actual numbers.
+;; what cljs (apply ..) does and see actual numbers.
 
 (defn <-
-  ([]
-   (new-signal nil))
-  ([init]
-   (new-signal init))
   ([f x]
    (core/Transform. (fn [_ args]
                       (f (aget args 0)))
@@ -59,7 +55,6 @@
      (js-into-array (js-array x y z i j) rest))))
 
 (defn <-*
-  ([] (new-event))
   ([f x] (as-event! (<- f x)))
   ([f x y] (as-event! (<- f x y)))
   ([f x y z] (as-event! (<- f x y z)))
