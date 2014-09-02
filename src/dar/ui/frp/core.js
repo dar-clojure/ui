@@ -425,36 +425,38 @@ APort.prototype.onkill = function() {
   this._kill && this._kill()
 }
 
-exports.Pipe = Pipe
+exports.Push = Push
 
-function Pipe(target, src) {
+function Push(input) {
   this.uid = newUid()
-  this.src = src
-  this.target = target
+  this.input = input
 }
 
-Pipe.prototype.createState = function(app) {
-  return new APipe(this, app)
+Push.prototype.createState = function(app) {
+  return new APush(this, app)
 }
 
-function APipe(spec, app) {
+function APush(spec, app) {
   State.call(this, spec, app)
 }
 
-extend(APipe, State)
+extend(APush, State)
 
-APipe.prototype.init = function() {
-  this.src = this.dependOn(this.spec.src)
+APush.prototype.init = function() {
+  this.input = this.dependOn(this.spec.input)
 }
 
-APipe.prototype.markListenersDirty = function() {}
+APush.prototype.markListenersDirty = function() {}
 
-APipe.prototype.recompute = function() {
-  this.app.push(this.spec.target, this.src.value)
+APush.prototype.recompute = function() {
+  var sv = this.input.value
+  var s = cljs.core.nth(sv, 0)
+  var v = cljs.core.nth(sv, 1)
+  this.app.push(s, v)
 }
 
-APipe.prototype.onkill = function() {
-  this.src.kill(this)
+APush.prototype.onkill = function() {
+  this.input.kill(this)
 }
 
 exports.PullOnly = PullOnly

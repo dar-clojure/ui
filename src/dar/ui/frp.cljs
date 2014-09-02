@@ -215,8 +215,13 @@
 (defn port* [f]
   (as-event! (port f)))
 
+(defn push [src]
+  (core/Push. src))
+
 (defn pipe [target src]
-  (core/Pipe. target src))
+  (push (<- (fn [val]
+              [target val])
+          src)))
 
 (defn pull-only [input]
   (core/PullOnly. input))
