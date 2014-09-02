@@ -71,7 +71,7 @@
                   (if n
                     (let [[o el] (get old (key n))
                           el (if el
-                               (update n o el)
+                               (update! el n o)
                                (create n))]
                       (.insertBefore parent el ref)
                       (recur
@@ -85,14 +85,15 @@
       (remove o el))))
 
 (defn update-children! [parent new-children old-children]
-  (let [[rest-new rest-old ref] (update-non-sorted-children
-                                  util/nextSibling
-                                  #(.appendChild parent %)
-                                  (util/firstChild parent)
-                                  new-children
-                                  old-children)]
+  (let [[rest-new rest-old el] (update-non-sorted-children
+                                 util/nextSibling
+                                 #(.appendChild parent %)
+                                 (util/firstChild parent)
+                                 new-children
+                                 old-children)]
     (when (seq rest-new)
-      (let [[left-new left-old el] (update-non-sorted-children
+      (let [ref (util/prevSibling el)
+            [left-new left-old el] (update-non-sorted-children
                                      util/prevSibling
                                      #(.insertBefore parent % ref)
                                      (util/lastChild parent)
@@ -225,9 +226,9 @@
         (filter (complement nil?)
           (apply concat
             (map (fn [f]
-                    (if (fn? f)
-                      (f e el)
-                      (mapcat #(% e el) f)))
+                   (if (fn? f)
+                     (f e el)
+                     (mapcat #(% e el) f)))
               (util/listeners el (.-type e)))))))))
 
 (defn to* [proc]
@@ -239,8 +240,8 @@
   ([signal proc]
    (fn [e el]
      (let [val (cond (fn? proc) (proc e el)
-                     (nil? proc) e
-                     :else proc)]
+                 (nil? proc) e
+                 :else proc)]
        (when-not (nil? val)
          [[signal val]])))))
 
