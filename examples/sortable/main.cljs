@@ -192,7 +192,8 @@
     (for [i (range 0 50)]
       [i (IMG {:key i
                :src (str "http://lorempixel.com/120/120/nature/" (rand-int 11))
-               :class "gallery-image no-drag-select"})])))
+               :class "gallery-image no-drag-select"
+               :ondragstart "return false"})])))
 
 (def order
   (frp/new-signal
