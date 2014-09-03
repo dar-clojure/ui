@@ -215,12 +215,18 @@
 (defn port* [f]
   (as-event! (port f)))
 
+(set! (.-recompute core/APush.prototype)
+  (fn []
+    (this-as this
+      (doseq [[s v] (.. this -input -value)]
+        (.. this -app (push s v))))))
+
 (defn push [src]
   (core/Push. src))
 
 (defn pipe [target src]
   (push (<- (fn [val]
-              [target val])
+              [[target val]])
           src)))
 
 (defn pull-only [input]

@@ -436,6 +436,8 @@ Push.prototype.createState = function(app) {
   return new APush(this, app)
 }
 
+exports.APush = APush
+
 function APush(spec, app) {
   State.call(this, spec, app)
 }
@@ -449,10 +451,7 @@ APush.prototype.init = function() {
 APush.prototype.markListenersDirty = function() {}
 
 APush.prototype.recompute = function() {
-  var sv = this.input.value
-  var s = cljs.core.nth(sv, 0)
-  var v = cljs.core.nth(sv, 1)
-  this.app.push(s, v)
+  throw new Error('This should be implemented in Clojure')
 }
 
 APush.prototype.onkill = function() {
