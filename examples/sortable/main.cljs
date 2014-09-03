@@ -5,7 +5,9 @@
   (:require-macros [dar.ui.html :refer [DIV IMG]]
                    [dar.ui.frp :as frp]))
 
-(enable-console-print!)
+;
+; Utils
+;
 
 (def counter (atom 0))
 
@@ -15,7 +17,7 @@
 (defn mouse-pos [e]
   [(.-clientX e) (.-clientY e)])
 
-(defn element-pos [el]
+(defn element-left-top [el]
   (let [r (.getBoundingClientRect el) ]
     [(+ js/window.scrollX (.-left r))
      (+ js/window.scrollY (.-top r))]))
@@ -49,6 +51,10 @@
 (def mouseup
   (ui/event-signal* js/window :mouseup))
 
+;
+; Hit test mechanism
+;
+
 (ui/install-plugin! ::key (fn [el k _]
                             (set! (.-__sortable_item_key el) k)))
 
@@ -61,7 +67,28 @@
       (second (item-key el))
       (recur (.-parentNode el) id))))
 
-(defn initial-state [col]
+(defn hit-test [id phantom e]
+  (set! (.. phantom -style -display) "none")
+  (let [el (js/document.elementFromPoint
+             (.-clientX e)
+             (.-clientY e))]
+    (set! (.. phantom -style -display) nil)
+    (target el id)))
+
+(defn annotate [virtual-el id idx]
+  (ui/set-attributes virtual-el
+    (assoc (ui/attributes virtual-el)
+      ::key [id idx])))
+
+(defn reset-idx [virtual-el idx]
+  (ui/set-attributes virtual-el
+    (assoc-in (ui/attributes virtual-el) [::key 1] idx)))
+
+;
+; State machine
+;
+
+(defn initial-state [col order]
   (let [id (new-uid)
         capture (frp/new-event)
         html (<- (fn [col]
@@ -69,15 +96,16 @@
                      (vec
                        (map-indexed (fn [i el]
                                       (-> el
-                                        (ui/set-attributes (assoc (ui/attributes el) ::key [id i]))
+                                        (annotate id i)
                                         (ui/listen :mousedown
                                           (ui/to capture (fn [e dom-el]
                                                            [i e dom-el])))))
                          (ui/children col)))))
                col)]
-    {:commands {:capture capture}
+    {:id id
+     :order order
+     :commands {:capture capture}
      :inputs {:col html}
-     :id id
      :output {:html (constantly html)}
      :methods {:capture captured-state}}))
 
@@ -91,72 +119,54 @@
       (assoc
         :initial-state state
         :mouse-start-pos (mouse-pos e)
-        :el-start-pos (element-pos el)
+        :el-start-pos (element-left-top el)
         :phantom (make-phantom el)
         :col col
         :items items
         :captured-idx idx
-        :methods captured-state-methods
         :output {:html (fn [s]
                          (<- ui/set-children
                            (<- :col s)
-                           (<- :items s)))}))))
+                           (<- :items s)))}
+        :methods captured-state-methods))))
 
 (def captured-state-methods
   {:mouse (fn [state e]
             (let [pos (mouse-pos e)]
-              (if (> 10 (distance pos (:mouse-start-pos state)))
-                state
-                (dragging-state state pos))))
+              (when (> 10 (distance pos (:mouse-start-pos state)))
+                (dragging-state state))))
    :mouseup (fn [state _]
               (:initial-state state))})
 
-(defn dragging-state [{:keys [phantom] :as state} pos]
+(defn dragging-state [{:keys [phantom el-start-pos mouse-start-pos] :as state}]
   (-> state
     (update-in [:items (:captured-idx state)] ui/add-class "is-dragging")
-    (assoc :methods dragging-state-methods)
     (assoc-in [:output :phantom]
       (fn [_]
         (frp/effect
           (fn [e]
-            (place-element! phantom (draggable-position state (mouse-pos e))))
+            (place-element! phantom
+              (let [pos (mouse-pos e)]
+                (mapv + el-start-pos (mapv - pos mouse-start-pos)))))
           (fn []
             (remove-element! phantom))
-          mousemove)))))
-
-(defn draggable-position [state mouse-pos]
-  (mapv +
-    (:el-start-pos state)
-    (mapv -
-      mouse-pos
-      (:mouse-start-pos state))))
+          mousemove)))
+    (assoc :methods dragging-state-methods)))
 
 (def dragging-state-methods
   {:mouse (fn [state e]
-            (let [idx (hit-test state e)]
-              (if (or (not idx) (= idx (:captured-idx state)))
-                state
-                (move state idx))))
-   :mouseup (fn [state _]
-              (:initial-state state))})
+            (let [idx (hit-test (:id state) (:phantom state) e)]
+              (when (and idx (not= idx (:captured-idx state)))
+                (re-order-items state idx))))
 
-(defn hit-test [{:keys [id phantom]} e]
-  (set! (.. phantom -style -display) "none")
-  (let [el (js/document.elementFromPoint
-             (.-clientX e)
-             (.-clientY e))]
-    (set! (.. phantom -style -display) nil)
-    (target el id)))
+   :mouseup (fn [{:keys [order items initial-state]} _]
+              (assoc initial-state
+                :push [[order (mapv ui/key items)]]))})
 
-(defn set-idx [el idx]
-  (ui/set-attributes el
-    (assoc-in (ui/attributes el) [::key 1] idx)))
-
-(defn conj* [ret el]
-  (conj ret (set-idx el (count ret))))
-
-(defn move [{:keys [items captured-idx] :as state} target-idx]
-  (let [captured (nth items captured-idx)]
+(defn re-order-items [{:keys [items captured-idx] :as state} target-idx]
+  (let [captured (nth items captured-idx)
+        conj* (fn [items el]
+                (conj items (reset-idx el (count items))))]
     (assoc state
       :captured-idx target-idx
       :items (reduce-kv (fn [ret idx el]
@@ -169,24 +179,30 @@
                []
                items))))
 
-(defn sortable [col]
-  (<- :html
-    (sm/create
-      (initial-state col))))
+(defn sortable [col order]
+  (<- :html (sm/create
+              (initial-state col order))))
 
-(def app
-  (frp/new-app))
+;
+; Demo
+;
 
 (def images
-  (DIV {:class "gallery"}
-    [(for [i (range 1 50)]
-       (IMG {:key i
-             :src (str "http://lorempixel.com/120/120/nature/" (rand-int 11))
-             :class "gallery-image no-drag-select"}))]))
+  (into {}
+    (for [i (range 0 50)]
+      [i (IMG {:key i
+               :src (str "http://lorempixel.com/120/120/nature/" (rand-int 11))
+               :class "gallery-image no-drag-select"})])))
 
-(defn -main []
-  (ui/render!
-    app
-    (sortable
-      (frp/new-signal images))
+(def order
+  (frp/new-signal
+    (sort (keys images))))
+
+(def gallery
+  (frp/bind [order order]
+    (DIV {:class "gallery"}
+      [(mapv #(get images %) order)])))
+
+(defn ^:export -main []
+  (ui/render! (sortable gallery order)
     (js/document.getElementById "app")))
