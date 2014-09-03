@@ -239,13 +239,13 @@ Switch.prototype.createState = function(app) {
 
 function ASwitch(spec, app) {
   State.call(this, spec, app)
-  this.downstreamPriority = 0
 }
 
 extend(ASwitch, State)
 
 ASwitch.prototype.init = function() {
   this.input = this.dependOn(this.spec.input)
+  this.downstreamPriority = this.priority - 1
 }
 
 ASwitch.prototype.recompute = function() {
@@ -290,7 +290,7 @@ ASwitch.prototype.lowerDownstream = function(priority) {
 }
 
 ASwitch.prototype.getDownstreamPriority = function() {
-  return this.downstreamPriority
+  return this.downstreamPriority - 1
 }
 
 ASwitch.prototype.onkill = function() {
@@ -335,7 +335,6 @@ DSwitch.prototype.createState = function(app) {
 
 function ADSwitch(spec, app) {
   State.call(this, spec, app)
-  this.downstreamPriority = 0
 }
 
 extend(ADSwitch, ASwitch)
