@@ -1,5 +1,6 @@
 (ns sortable.main
   (:require [dar.ui.frp :as frp :refer [<-]]
+            [dar.ui.frp.state-machine :as sm]
             [dar.ui :as ui]
             [util :as util])
   (:require-macros [dar.ui.html :refer [DIV IMG]]
@@ -171,7 +172,7 @@
 
 (defn sortable [col]
   (<- :html
-    (util/state-machine
+    (sm/create
       (initial-state col))))
 
 (def app
