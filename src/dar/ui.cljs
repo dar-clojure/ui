@@ -322,7 +322,7 @@
 
 
 ;
-; Virtual DOM utils
+; Misc
 ;
 
 (defn classes [m]
@@ -347,3 +347,22 @@
 (defn listen [el type f]
   (set-attributes el
     (update-in (attributes el) [:events type] conj f)))
+
+(defn event-signal
+  ([ctx type init transform]
+   (frp/port
+     (fn [push]
+       (when init
+         (push (init)))
+       (let [handler #(when-let [v (transform %)]
+                        (push v))]
+         (.addEventListener ctx (name type) handler)
+         (fn onkill []
+           (.removeEventListener ctx (name type) handler)))))))
+
+(defn event-signal*
+  ([ctx type]
+   (event-signal* ctx type identity))
+  ([ctx type transform]
+   (frp/as-event!
+     (event-signal ctx type (fn [] nil) transform))))

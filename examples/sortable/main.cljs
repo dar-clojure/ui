@@ -1,8 +1,7 @@
 (ns sortable.main
   (:require [dar.ui.frp :as frp :refer [<-]]
             [dar.ui.frp.state-machine :as sm]
-            [dar.ui :as ui]
-            [util :as util])
+            [dar.ui :as ui])
   (:require-macros [dar.ui.html :refer [DIV IMG]]
                    [dar.ui.frp :as frp]))
 
@@ -45,10 +44,10 @@
       (js/Math.pow (- y2 y1) 2))))
 
 (def mousemove
-  (util/event-port* js/window :mousemove))
+  (ui/event-signal* js/window :mousemove))
 
 (def mouseup
-  (util/event-port* js/window :mouseup))
+  (ui/event-signal* js/window :mouseup))
 
 (ui/install-plugin! ::key (fn [el k _]
                             (set! (.-__sortable_item_key el) k)))
