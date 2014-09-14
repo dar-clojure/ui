@@ -1,4 +1,3 @@
 {:css ["calculator.css"]
- :cljs [calculator.main]
- :main-ns calculator.main
- :main-html "main.html"}
+ :page {:main-ns calculator.main
+        :body [:table#calc]}}

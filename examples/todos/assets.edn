@@ -1,5 +1,4 @@
 {:css ["todos.css"]
  :files ["bg.png"]
- :cljs [todos.main]
- :main-ns todos.main
- :main-html "index.html"}
+ :page {:main-ns todos.main
+        :body "index.html"}}
