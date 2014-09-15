@@ -41,7 +41,7 @@ a "perfectly valid technique", not like a hack.
 
 ###FRP
 
-It is an efficient push based event system.
+It is a push based event system.
 It touches only necessary parts of the signal graph during update.
 
 Signals are first class.
@@ -58,7 +58,7 @@ conditionally, depending on the current state.
 
 The above fact together with some other tricks is the main source of power.
 It allows to create components with local state, while still retaining
-all benefits of pure FRP system.
+all benefits of pure system.
 
 ##Installation
 
