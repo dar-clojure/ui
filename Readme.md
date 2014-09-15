@@ -59,3 +59,14 @@ conditionally, depending on the current state.
 The above fact together with some other tricks is the main source of power.
 It allows to create components with local state, while still retaining
 all benefits of pure FRP system.
+
+##Installation
+
+Not yet released.
+
+##License
+
+Copyright © 2014 Eldar Gabdullin
+
+Distributed under the Eclipse Public License either version 1.0 or (at
+your option) any later version.
