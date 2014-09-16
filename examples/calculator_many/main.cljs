@@ -4,7 +4,7 @@
             [dar.ui.frp :as frp :include-macros true])
   (:require-macros [dar.ui.html :refer [DIV]]))
 
-(defn -main []
+(defn ^:export -main []
   (ui/render! (frp/bind [calcs (frp/join (repeatedly 1000 new-calc))]
                 (DIV {:id "calcs"}
                   [calcs]))

@@ -119,5 +119,5 @@
         (TBODY nil
           [(cons (display s) keys)])))))
 
-(defn -main []
+(defn ^:export -main []
   (ui/render! (new-calc) (.getElementById js/document "calc")))
