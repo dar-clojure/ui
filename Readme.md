@@ -13,8 +13,7 @@ one-shot data transformations.
 ###DOM
 
 Virtual DOM tree is entierly immutable, no part is statefull, there are no exceptions.
-Updates are always proceed from the top root element by parallel depth-first walk
-over real DOM and two versions of virtual tree.
+Updates always proceed from top by parallel depth-first walk.
 
 The key insight of fast updates is that, because our tree is entirely immutable, we
 can quickly check two nodes for been identical, and if so, just skip the entire branch.
@@ -42,7 +41,8 @@ a "perfectly valid technique", not like a hack.
 ###FRP
 
 It is a push based event system.
-It touches only necessary parts of the signal graph during update.
+It touches only necessary parts of the signal graph during update
+and only once.
 
 Signals are first class.
 
