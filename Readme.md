@@ -1,24 +1,24 @@
-#dar.ui
+#ui
 
 Frontend web framework that aims to make development
 of rich, highly interactive user interfaces as easy as
-plain HTML document rendering. It achieves that
-by employing simple and efficient virtual DOM abstraction,
-as well as empowering conventional [FRP](http://en.wikipedia.org/wiki/Functional_reactive_programming)
-approuch to bring long missing idioms proved to be useful and necessary for
-one-shot data transformations.
+plain HTML document rendering.
+
+It is based on [Functional Reactive Programming](http://en.wikipedia.org/wiki/Functional_reactive_programming)
+and very best ideas from [React/Om](http://swannodette.github.io/2013/12/17/the-future-of-javascript-mvcs/).
 
 ##Overview
 
-###DOM
+###Virtual DOM
 
 Virtual DOM tree is entierly immutable, no part is statefull, there are no exceptions.
-Updates always proceed from top by parallel depth-first walk.
+Updates always proceed from top by parallel depth-first walk over new version, old version and
+real DOM.
 
 The key insight of fast updates is that, because our tree is entirely immutable, we
 can quickly check two nodes for been identical, and if so, just skip the entire branch.
 Another point is that, FRP system helps us to avoid rebuilding the whole tree
-each time, giving both modularity and performance.
+each time.
 
 In practice that means that if, for example, our app consists of header, footer and body,
 we'll have three signals (for header, footer and body) and some "assembling" function
@@ -35,12 +35,12 @@ to produce the root element.
 Then we can lift `assemble-dom` to take signals.
 
 It's worth noting, that (unlike with React) it is easy to perform various "a-la
-jquery plugin" transformations, except this time it feels like
-a "perfectly valid technique", not like a hack.
+jquery plugin" transformations.
 
 ###FRP
 
 It is a push based event system.
+
 It touches only necessary parts of the signal graph during update
 and only once.
 
@@ -53,12 +53,8 @@ Actual state is instantiated on demand on an `app` instance.
 During runtime it is possible to have several apps running
 the same signal graph.
 
-Signal graph is dynamic, i.e. it is possible to plug-detach new signals
+Signal graph is dynamic, i.e. it is possible to plug-detach-create-link signals
 conditionally, depending on the current state.
-
-The above fact together with some other tricks is the main source of power.
-It allows to create components with local state, while still retaining
-all benefits of pure system.
 
 ##Installation
 
