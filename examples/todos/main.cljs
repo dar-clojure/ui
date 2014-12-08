@@ -9,7 +9,7 @@
   (frp/new-event))
 
 (def todos
-  (frp/automaton
+  (frp/object
     {}
     {:new (fn [todos text]
             (let [id (js/Date.now)]

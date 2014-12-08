@@ -351,14 +351,13 @@
 (defn event-signal
   ([ctx type init transform]
    (frp/port
-     (fn [push]
+     (fn [s]
        (when init
-         (push (init)))
+         (.push (init)))
        (let [handler #(when-let [v (transform %)]
-                        (push v))]
+                        (.push s v))]
          (.addEventListener ctx (name type) handler)
-         (fn onkill []
-           (.removeEventListener ctx (name type) handler)))))))
+         (.onKill s #(.removeEventListener ctx (name type) handler)))))))
 
 (defn event-signal*
   ([ctx type]

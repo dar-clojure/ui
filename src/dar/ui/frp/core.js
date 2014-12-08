@@ -42,10 +42,7 @@ App.prototype.watch = function(signal, cb) {
 App.prototype.push = function(signal, v) {
   var s = this.signals[signal.uid]
   if (!s) return
-  if (s.value === v) return
-  if (s.event) this.events.push(s)
-  s.value = v
-  s.markListenersDirty()
+  s.receive(v)
 }
 
 App.prototype.state = function(signal) {
@@ -83,18 +80,6 @@ App.prototype.clearEvents = function() {
   this.events = []
 }
 
-exports.Signal = Signal
-
-function Signal(val) {
-  this.uid = newUid()
-  this.value = val
-  this.event = false
-}
-
-Signal.prototype.createState = function(app) {
-  return new State(this, app)
-}
-
 function State(spec, app) {
   this.uid = spec.uid
   this.value = spec.value
@@ -128,6 +113,13 @@ State.prototype.onkill = function() {}
 
 State.prototype.recompute = function() {}
 
+State.prototype.receive = function(v) {
+  if (this.value === v) return
+  this.value = v
+  if (this.event) this.app.events.push(this)
+  this.markListenersDirty()
+}
+
 State.prototype.markDirty = function() {
   if (this.dirty) return
   this.dirty = true
@@ -151,6 +143,20 @@ State.prototype.getDownstreamPriority = function() {
   return this.priority - 1
 }
 
+State.prototype.lowerPriority = function(priority) {
+  if (this.priority <= priority) return false
+  if (this.lowering) throw new Error('Cycle in the signal graph')
+  this.lowering = true
+  this.priority = priority
+  var touchedDirty = this.updateListenersPriority()
+  this.lowering = false
+  return this.dirty || touchedDirty
+}
+
+State.prototype.updateListenersPriority = function() {
+  return this.lowerListenersPriority(this.getDownstreamPriority())
+}
+
 State.prototype.lowerListenersPriority = function(priority) {
   var ret = false
   for(var key in this.listeners) {
@@ -160,22 +166,24 @@ State.prototype.lowerListenersPriority = function(priority) {
   return ret
 }
 
-State.prototype.lowerPriority = function(priority) {
-  if (this.priority <= priority) return false
-  if (this.lowering) throw new Error('Cycle in the signal graph')
-  this.lowering = true
-  this.priority = priority
-  var touchedDirty = this.lowerListenersPriority(priority - 1)
-  this.lowering = false
-  return this.dirty || touchedDirty
-}
-
 State.prototype.kill = function(listener) {
   if (listener) this.removeListener(listener)
   if (this.hasListeners()) return
   delete this.app.signals[this.uid]
   this.killed = true
   this.onkill()
+}
+
+exports.Signal = Signal
+
+function Signal(val) {
+  this.uid = newUid()
+  this.value = val
+  this.event = false
+}
+
+Signal.prototype.createState = function(app) {
+  return new State(this, app)
 }
 
 exports.Transform = Transform
@@ -225,173 +233,12 @@ exports.mergeTransform = function(_, vals) {
   }
 }
 
-exports.Switch = Switch
-
-function Switch(input) {
-  this.uid = newUid()
-  this.input = input
-  this.event = false
-}
-
-Switch.prototype.createState = function(app) {
-  return new ASwitch(this, app)
-}
-
-function ASwitch(spec, app) {
-  State.call(this, spec, app)
-}
-
-extend(ASwitch, State)
-
-ASwitch.prototype.init = function() {
-  this.input = this.dependOn(this.spec.input)
-  this.downstreamPriority = this.priority - 1
-}
-
-ASwitch.prototype.recompute = function() {
-  var signal = this.input.value
-    , old = this.signal
-    , oldState = this.signalState
-
-  if (signal !== old) {
-    this.plugNewSignal(signal)
-    if (oldState) oldState.kill(this)
-  }
-
-  if (signal) {
-    this.dummy = new DummySwitch(this)
-    this.dummy.markDirty()
-  }
-}
-
-ASwitch.prototype.plugNewSignal = function(signal) {
-  if (!signal) return this.signal = this.signalState = this.value = null
-  this.signal = signal
-  var s = this.signalState = this.app.state(signal)
-  s.addListener(this)
-  var dp = Math.min(this.priority - 1, s.getDownstreamPriority())
-  if (this.lowerDownstream(dp)) this.app.queue.resort()
-}
-
-ASwitch.prototype.lowerPriority = function(priority) {
-  if (this.priority < this.input.getDownstreamPriority())
-    return this.lowerDownstream(priority)
-  this.priority = priority
-  var dirty = this.lowerDownstream(priority - 1)
-  return this.dirty || dirty
-}
-
-ASwitch.prototype.lowerDownstream = function(priority) {
-  if (this.downstreamPriority <= priority) return false
-  this.downstreamPriority = priority
-  var touchedDirty = this.lowerListenersPriority(priority - 1)
-  if (this.dummy) this.dummy.priority = priority
-  return !!this.dummy || touchedDirty
-}
-
-ASwitch.prototype.getDownstreamPriority = function() {
-  return this.downstreamPriority - 1
-}
-
-ASwitch.prototype.onkill = function() {
-  if (this.dummy) this.dummy.killed = true
-  if (this.signalState) this.signalState.kill(this)
-  this.input.kill(this)
-}
-
-function DummySwitch(sw, delayed) {
-  this.app = sw.app
-  this.priority = sw.downstreamPriority
-  this.value = sw.value
-  this.sw = sw
-  this.delayed = delayed
-}
-
-extend(DummySwitch, State)
-
-DummySwitch.prototype.recompute = function() {
-  this.sw.dummy = null
-  this.value = this.sw.value = this.sw.signalState.value
-}
-
-DummySwitch.prototype.markListenersDirty = function() {
-  if (this.delayed) return
-  for(var key in this.sw.listeners) {
-    this.sw.listeners[key].markDirty()
-  }
-}
-
-exports.DSwitch = DSwitch
-
-function DSwitch(input) {
-  this.uid = newUid()
-  this.input = input
-  this.event = false
-}
-
-DSwitch.prototype.createState = function(app) {
-  return new ADSwitch(this, app)
-}
-
-function ADSwitch(spec, app) {
-  State.call(this, spec, app)
-}
-
-extend(ADSwitch, ASwitch)
-
-ADSwitch.prototype.recompute = function() {
-  var signal = this.input.value
-    , old = this.signal
-    , oldState = this.signalState
-
-  if (signal !== old) {
-    this.plugNewSignal(signal)
-    if (oldState) oldState.kill(this)
-  }
-
-  if (signal) {
-    this.dummy = new DummySwitch(this, signal !== old)
-    this.dummy.markDirty()
-  }
-}
-
-exports.SignalsMap = SignalsMap
-
-function SignalsMap(input, sf) {
-  this.uid = newUid()
-  this.input = input
-  this.sf = sf
-}
-
-SignalsMap.prototype.createState = function(app) {
-  return new ASignalsMap(this, app)
-}
-
-exports.ASignalsMap = ASignalsMap
-
-function ASignalsMap(spec, app) {
-  State.call(this, spec, app)
-}
-
-extend(ASignalsMap, State)
-
-ASignalsMap.prototype.init = function() {
-  this.input = this.dependOn(this.spec.input)
-}
-
-ASignalsMap.prototype.recompute = function() {
-  throw new Error('This should be implemented in Clojure')
-}
-
-ASignalsMap.prototype.onkill = function() {
-  this.app.kill(this.input, this)
-}
-
 exports.Port = Port
 
-function Port(fn) {
+function Port(fn, input) {
   this.uid = newUid()
   this.fn = fn
+  this.input = input
   this.event = false
 }
 
@@ -406,62 +253,108 @@ function APort(spec, app) {
 extend(APort, State)
 
 APort.prototype.init = function() {
-  var self = this
-  var app = this.app
-  var signal = this.spec
-  var value, initializing = true
-  this._kill = signal.fn(function push(val) {
-    if (initializing) return value = val
-    app.push(signal, val)
-    app.recompute()
-  })
-  initializing = false
-  this.spec = null
-  this.value = value
+  this.initializing = true
+  this.spec.fn(this)
+  this.initializing = false
+  if (this.spec.input)
+    this.input = this.dependOn(this.spec.input)
+}
+
+APort.prototype.push = function(val) {
+  if (this.initializing) {
+    this.value = val
+  } else if (this.tick) {
+    throw new Error('You can push a new value only in the next tick')
+  } else {
+    this.app.push(this.spec, val)
+    this.app.recompute()
+  }
+}
+
+APort.prototype.onInput = function(f) {
+  this._oninput = f
+}
+
+APort.prototype.onKill = function(f) {
+  this._kill = f
 }
 
 APort.prototype.onkill = function() {
   this._kill && this._kill()
 }
 
-exports.Push = Push
+APort.prototype.recompute = function() {
+  if (!this._oninput || !this.input) return
+  this.tick = true
+  this._oninput(this.input.value)
+  this.tick = false
+}
 
-function Push(input) {
+APort.prototype.getDownstreamPriority = function() {
+  return 0
+}
+
+exports.Pipe = Pipe
+
+function Pipe(target, src) {
   this.uid = newUid()
-  this.input = input
+  this.src = src
+  this.target = target
 }
 
-Push.prototype.createState = function(app) {
-  return new APush(this, app)
+Pipe.prototype.createState = function(app) {
+  return new APipe(this, app)
 }
 
-exports.APush = APush
+exports.APipe = APipe
 
-function APush(spec, app) {
+function APipe(spec, app) {
   State.call(this, spec, app)
 }
 
-extend(APush, State)
+extend(APipe, State)
 
-APush.prototype.init = function() {
-  this.input = this.dependOn(this.spec.input)
+APipe.prototype.init = function() {
+  this.src = this.dependOn(this.spec.src)
+  this.target = this.app.state(this.spec.target)
+  this.target.lowerPriority(this.priority - 1) && this.app.queue.resort()
+  this.targetListener = new DummyListener
+  this.target.addListener(this.targetListener)
 }
 
-APush.prototype.markListenersDirty = function() {}
+APipe.prototype.markListenersDirty = function() {}
 
-APush.prototype.recompute = function() {
-  throw new Error('This should be implemented in Clojure')
+APipe.prototype.getDownstreamPriority = function() {
+  return 0
 }
 
-APush.prototype.onkill = function() {
-  this.input.kill(this)
+APipe.prototype.updateListenersPriority = function() {
+  this.target.lowerPriority(this.priority - 1)
 }
+
+APipe.prototype.recompute = function() {
+  this.target.push(this.src.value)
+}
+
+APipe.prototype.onkill = function() {
+  this.src.kill(this)
+  this.target.kill(this.targetListener)
+}
+
+function DummyListener() {
+  this.uid = newUid()
+}
+
+DummyListener.prototype.markDirty = function() {}
+
+DummyListener.prototype.lowerPriority = function() {}
 
 exports.PullOnly = PullOnly
 
 function PullOnly(input) {
   this.uid = newUid()
   this.input = input
+  this.event = this.input.event
 }
 
 PullOnly.prototype.createState = function(app) {
@@ -488,55 +381,155 @@ APullOnly.prototype.onkill = function() {
   this.input.kill(this)
 }
 
-exports.Effect = Effect
+exports.Hold = Hold
 
-function Effect(fn, kill, inputs) {
+function Hold(inputs) {
   this.uid = newUid()
-  this.fn = fn
-  this.kill = kill
   this.inputs = inputs
 }
 
-Effect.prototype.createState = function(app) {
-  return new AEffect(this, app)
+Hold.prototype.createState = function(app) {
+  return new AHold(this, app)
 }
 
-function AEffect(spec, app) {
+function AHold(spec, app) {
   State.call(this, spec, app)
 }
 
-extend(AEffect, State)
-
-AEffect.prototype.init = function() {
+AHold.prototype.init = function() {
   var inputs = this.spec.inputs
   this.inputs = new Array(inputs.length)
   for(var i = 0; i < inputs.length; i++) {
-    this.inputs[i] = this.dependOn(inputs[i])
+    this.inputs[0] = this.dependOn(inputs[i])
   }
+  this.priority = 0
 }
 
-AEffect.prototype.recompute = function() {
-  var args = new Array(this.inputs.length)
-  for(var i = 0; i < this.inputs.length; i++) {
-    args[i] = this.inputs[i].value
-  }
-  this.spec.fn.apply(null, args)
-}
-
-AEffect.prototype.onkill = function() {
+AHold.prototype.kill = function() {
   for(var i = 0; i < this.inputs.length; i++) {
     this.inputs[i].kill(this)
   }
-  this.spec.kill && this.spec.kill()
 }
 
-AEffect.prototype.markListenersDirty = function() {}
+AHold.prototype.markDirty = function() {}
 
-AEffect.prototype.lowerListenersPriority = function() {}
-
-AEffect.prototype.getDownstreamPriority = function() {
+AHold.prototype.getDownstreamPriority = function() {
   return 0
 }
+
+AHold.prototype.lowerPriority = function() {
+  return false
+}
+
+exports.Switch = Switch
+
+function Switch(initial, switchEvent) {
+  this.uid = newUid()
+  this.initial = initial
+  this.switchEvent = switchEvent
+}
+
+Switch.prototype.createState = function(app) {
+  return new ASwitch(this, app)
+}
+
+function ASwitch(spec, app) {
+  State.call(this, spec, app)
+}
+
+ASwitch.prototype.init = function() {
+  this.upstream = this.dependOn(this.spec.initial)
+  this.event = this.upstream.event
+  this.switchEvent = this.dependOn(this.spec.switchEvent)
+  this.priority = this.switchEvent.getDownstreamPriority()
+  this.spec = null // do not leak stuff
+}
+
+ASwitch.prototype.getDownstreamPriority = function() {
+  return this.switchEvent
+    ? Math.min(this.switchEvent.getDownstreamPriority(), this.upstream.getDownstreamPriority()) - 1
+    : this.upstream.getDownstreamPriority() - 1
+}
+
+ASwitch.prototype.recompute = function() {
+  if (!this.switchEvent) {
+    // we are done with switching and just retranslating upstream
+    this.value = this.upstream.value
+    return
+  }
+
+  if (!this.switchEvent.value) {
+    if (this.priority <= this.upstream.getDownstreamPriority()) {
+      this.value = this.upstream.value
+      this.priority = this.switchEvent.getDownstreamPriority()
+    } else {
+      this.priority = this.upstream.getDownstreamPriority()
+      this.markDirty()
+    }
+    return
+  }
+
+  var next = this.switchEvent.value
+    , dp = this.getDownstreamPriority()
+    , upstream
+    , switchEvent
+
+  if (next instanceof Switch) {
+    upstream = this.dependOn(next.initial)
+    switchEvent = this.dependOn(next.switchEvent)
+  } else {
+    upstream = this.dependOn(next)
+  }
+
+  // it is important that we first subscribed for new signals
+  // and only then are killing old ones
+
+  if (upstream !== this.upstream) {
+    this.upstream.kill(this)
+    this.upstream = upstream
+    this.event = this.upstream.event
+  }
+
+  if (switchEvent !== this.switchEvent) {
+    this.switchEvent.kill(this)
+    this.switchEvent = switchEvent
+  }
+
+  if (this.switchEvent) {
+    this.priority = this.switchEvent.getDownstreamPriority()
+  } else {
+    this.priority = this.upstream.getDownstreamPriority()
+  }
+
+  if (this.getDownstreamPriority() < dp && this.lowerListenersPriority(this.getDownstreamPriority())) {
+    this.app.queue.resort()
+  }
+
+  this.markDirty()
+}
+
+exports.MapSwitch = MapSwitch
+
+function MapSwitch(sf, input) {
+  this.uid = newUid()
+  this.sf = sf
+  this.input = input
+}
+
+MapSwitch.prototype.createState = function(app) {
+  return new AMapSwitch(this, app)
+}
+
+exports.AMapSwitch = AMapSwitch
+
+function AMapSwitch(spec, app) {
+  State.call(this, spec, app)
+}
+
+AMapSwitch.prototype.init = function() {
+  this.input
+}
+
 
 exports.Heap = Heap
 

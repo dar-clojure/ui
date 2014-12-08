@@ -24,13 +24,13 @@
 
 (defn lift [f]
   (fn []
-    (core/Transform. (fn [prev, args]
+    (core/Transform. (fn [prev args]
                        (apply f args))
       (js-arguments 0))))
 
-;; TODO: arg dispatch is likely to be an overoptimization.
-;; Plain js f.apply(null, args) is smart. Need to review
-;; what cljs (apply ..) does and see actual numbers.
+;; TODO: arg dispatch is over-optimization.
+;; Plain js f.apply(null, args) is smart. Need to review/patch
+;; what cljs.core/apply does and see actual numbers.
 
 (defn <-
   ([f x]
@@ -143,97 +143,33 @@
                        (zipmap ks vals))
       (to-array signals))))
 
-(defn switch
-  ([input] (core/Switch. input))
-  ([f x] (switch (<- f x)))
-  ([f x y] (switch (<- f x y)))
-  ([f x y z] (switch (<- f x y z)))
-  ([f x y z i] (switch (<- f x y z i)))
-  ([f x y z i j & rest] (switch (apply <- f x y z i j rest))))
+(defn switch [initial switch-event]
+  (core/Switch. initial switch-event))
 
-(defn switch*
-  ([input] (as-event! (switch input)))
-  ([f x] (as-event! (switch f x)))
-  ([f x y] (as-event! (switch f x y)))
-  ([f x y z] (as-event! (switch f x y z)))
-  ([f x y z i] (as-event! (switch f x y z i)))
-  ([f x y z i j & rest] (as-event! (apply switch f x y z i j rest))))
+(defn port
+  ([f]
+   (core/Port. f))
+  ([f input]
+   (core/Port. f input)))
 
-(defn d-switch
-  "
-  (d-switch ..) is like a (switch ..), except it doesn't
-  notify listeners about value change upon switching to another signal.
-  Useful for breaking cycles.
-  "
-  ([input] (core/DSwitch. input))
-  ([f x] (d-switch (<- f x)))
-  ([f x y] (d-switch (<- f x y)))
-  ([f x y z] (d-switch (<- f x y z)))
-  ([f x y z i] (d-switch (<- f x y z i)))
-  ([f x y z i j & rest] (d-switch (apply <- f x y z i j rest))))
-
-(defn d-switch*
-  ([input] (as-event! (d-switch input)))
-  ([f x] (as-event! (d-switch f x)))
-  ([f x y] (as-event! (d-switch f x y)))
-  ([f x y z] (as-event! (d-switch f x y z)))
-  ([f x y z i] (as-event! (d-switch f x y z i)))
-  ([f x y z i j & rest] (as-event! (apply d-switch f x y z i j rest))))
-
-(set! (.-recompute core/ASignalsMap.prototype)
-  (fn []
-    (this-as this
-      (let [spec (.. this -spec)
-            sf (.. spec -sf)
-            input (.. this -input)
-            new-m (.. input -value)
-            old-m (.. this -oldInputValue)
-            signals-m (.. this -value)]
-        (set! (.. this -oldInputValue) new-m)
-        (set! (.. this -value)
-          (loop [new new-m
-                 sm signals-m
-                 signals (seq signals-m)]
-            (if-let [[k] (first signals)]
-              (if (contains? new k)
-                (recur (dissoc new k) sm (next signals))
-                (recur new (dissoc sm k) (next signals)))
-              (reduce (fn [sm [k]]
-                        (let [in (bind [m input]
-                                   [k (get m k)])]
-                          (assoc sm k (sf in))))
-                sm
-                new))))))))
-
-(defn map-switch [sf input]
-  (switch map-join
-    (core/SignalsMap. input sf)))
-
-(defn port [f]
-  (core/Port. f))
-
-(defn port* [f]
-  (as-event! (port f)))
-
-(set! (.-recompute core/APush.prototype)
-  (fn []
-    (this-as this
-      (doseq [[s v] (.. this -input -value)]
-        (.. this -app (push s v))))))
-
-(defn push [src]
-  (core/Push. src))
+(defn port*
+  ([f]
+   (as-event! (port f)))
+  ([f input]
+   (as-event! (port f input))))
 
 (defn pipe [target src]
-  (push (<- (fn [val]
-              [[target val]])
-          src)))
+  (core/Pipe. target src))
 
 (defn pull-only [input]
   (core/PullOnly. input))
 
-(defn effect [f kill x]
-  (core/Effect. f kill (js-arguments 2)))
+(defn hold
+  ([x] (core/Hold. (js-array x)))
+  ([x y] (core/Hold. (js-array x y)))
+  ([x y z] (core/Hold. (js-array x y z)))
+  ([x y z i] (core/Hold. (js-array x y z i)))
+  ([x y z i j & rest] (core/Hold. (js-into-array (js-array x y z i j) rest))))
 
 ;
 ; App API
@@ -258,7 +194,7 @@
 ; Misc
 ;
 
-(defn automaton [initial-state commands commands-signal]
+(defn object [initial-state commands commands-signal]
   (foldp (fn [state [cmd & args]]
            (apply (commands cmd) state args))
     initial-state

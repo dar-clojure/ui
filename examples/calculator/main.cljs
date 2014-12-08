@@ -113,7 +113,7 @@
 (defn new-calc []
   (let [commands (frp/new-event)
         keys (keys commands)
-        state (frp/automaton initial-state on-command commands)]
+        state (frp/object initial-state on-command commands)]
     (frp/bind [s state]
       (TABLE nil
         (TBODY nil
